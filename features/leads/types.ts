@@ -18,6 +18,8 @@ export interface LeadQueueItem {
   status: LeadStatus;
   last_outcome?: string | null;
   last_contacted_at: string | null;
+  last_activity_at?: string | null;
+  last_activity_label?: string | null;
   next_follow_up_at?: string | null;
   is_locked: boolean;
   locked_by_name: string | null;

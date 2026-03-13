@@ -65,6 +65,12 @@ type LockRow = {
   user_id: string;
 };
 
+type QueueActivityRow = {
+  lead_id: string;
+  action_label: string;
+  created_at: string;
+};
+
 type UserRow = {
   id: string;
   full_name: string;
@@ -203,6 +209,20 @@ export async function fetchLeadQueue(): Promise<LeadQueueItem[]> {
     throw new Error(`Failed to load lead locks: ${locksError.message}`);
   }
 
+  const queueLeads = (leads ?? []) as QueueLeadRow[];
+  const leadIds = queueLeads.map((lead) => lead.id);
+  const { data: activities, error: activitiesError } = leadIds.length
+    ? await supabase
+        .from("lead_activities")
+        .select("lead_id, action_label, created_at")
+        .in("lead_id", leadIds)
+        .order("created_at", { ascending: false })
+    : { data: [] as QueueActivityRow[], error: null };
+
+  if (activitiesError) {
+    throw new Error(`Failed to load lead activity summary: ${activitiesError.message}`);
+  }
+
   const activeLocks = (locks ?? []) as LockRow[];
   const userIds = [...new Set(activeLocks.map((lock) => lock.user_id))];
   const { data: users, error: usersError } = userIds.length
@@ -224,7 +244,14 @@ export async function fetchLeadQueue(): Promise<LeadQueueItem[]> {
     ])
   );
 
-  return ((leads ?? []) as QueueLeadRow[]).map((lead) => ({
+  const latestActivityMap = new Map<string, QueueActivityRow>();
+  for (const activity of (activities ?? []) as QueueActivityRow[]) {
+    if (!latestActivityMap.has(activity.lead_id)) {
+      latestActivityMap.set(activity.lead_id, activity);
+    }
+  }
+
+  return queueLeads.map((lead) => ({
     id: lead.id,
     shop_name: lead.shop_name,
     town_city: lead.town_city ?? null,
@@ -234,6 +261,8 @@ export async function fetchLeadQueue(): Promise<LeadQueueItem[]> {
     status: coerceLeadStatus(lead.status),
     last_outcome: lead.last_outcome ?? null,
     last_contacted_at: lead.last_contacted_at ?? null,
+    last_activity_at: latestActivityMap.get(lead.id)?.created_at ?? null,
+    last_activity_label: latestActivityMap.get(lead.id)?.action_label ?? null,
     next_follow_up_at: lead.next_follow_up_at ?? null,
     is_locked: lockMap.has(lead.id),
     locked_by_name: lockMap.get(lead.id) ?? null,

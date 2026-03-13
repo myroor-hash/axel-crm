@@ -160,10 +160,14 @@ export default function ProtectedHomePage() {
 
     function enrichLead(lead: LeadQueueItem) {
       const contactState = contactStateMap[lead.id];
-      const lastContactAt = contactState?.lastContactAt ?? lead.last_contacted_at ?? null;
+      const lastContactAt =
+        contactState?.lastContactAt ??
+        lead.last_contacted_at ??
+        lead.last_activity_at ??
+        null;
       const followUpAt =
         contactState?.followUpAt ?? lead.next_follow_up_at ?? null;
-      const hasRecordedOutcome = Boolean(lead.last_outcome);
+      const hasRecordedOutcome = Boolean(lead.last_outcome || lead.last_activity_label);
       const hasContactHistory = Boolean(lastContactAt || hasRecordedOutcome);
 
       const followUpDue =

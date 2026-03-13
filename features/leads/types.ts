@@ -15,6 +15,7 @@ export interface LeadQueueItem {
   contact_name?: string | null;
   phone_number?: string | null;
   postcode?: string | null;
+  has_invoice_history?: boolean;
   status: LeadStatus;
   last_outcome?: string | null;
   last_contacted_at: string | null;

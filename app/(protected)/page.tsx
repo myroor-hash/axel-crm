@@ -40,6 +40,7 @@ type ContactState = {
 };
 
 type PanelMode = "lead" | "email";
+type QueueTab = "existing" | "prospects";
 
 function mapDbActivities(rows: DbActivity[]): Activity[] {
   return rows.map((row) => ({
@@ -66,6 +67,7 @@ export default function ProtectedHomePage() {
   const [panelMode, setPanelMode] = useState<PanelMode>("lead");
   const [attachments, setAttachments] = useState<AttachmentOption[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
+  const [queueTab, setQueueTab] = useState<QueueTab>("existing");
 
   useEffect(() => {
     async function loadQueue() {
@@ -224,10 +226,13 @@ export default function ProtectedHomePage() {
   }, [baseQueue, contactStateMap]);
 
   const filteredQueue = useMemo(() => {
+    const tabbedQueue = queue.filter((lead) =>
+      queueTab === "existing" ? lead.has_invoice_history : !lead.has_invoice_history
+    );
     const term = searchTerm.trim().toLowerCase();
-    if (!term) return queue;
+    if (!term) return tabbedQueue;
 
-    return queue.filter((lead) => {
+    return tabbedQueue.filter((lead) => {
       const haystack = [
         lead.shop_name,
         lead.contact_name,
@@ -241,7 +246,7 @@ export default function ProtectedHomePage() {
 
       return haystack.includes(term);
     });
-  }, [queue, searchTerm]);
+  }, [queue, queueTab, searchTerm]);
 
   const visibleQueue = useMemo(() => filteredQueue.slice(0, 20), [filteredQueue]);
 
@@ -277,6 +282,26 @@ export default function ProtectedHomePage() {
     setPanelMode("lead");
     setSelectedLeadId(leadId);
     setShowUnfinishedWarning(false);
+  }
+
+  function handleSelectQueueTab(tab: QueueTab) {
+    setQueueTab(tab);
+
+    const tabbedQueue = queue.filter((lead) =>
+      tab === "existing" ? lead.has_invoice_history : !lead.has_invoice_history
+    );
+
+    if (tabbedQueue.length === 0) {
+      setSelectedLeadId(null);
+      return;
+    }
+
+    if (selectedLeadId && tabbedQueue.some((lead) => lead.id === selectedLeadId)) {
+      return;
+    }
+
+    const firstUnlocked = tabbedQueue.find((lead) => !lead.is_locked);
+    setSelectedLeadId(firstUnlocked?.id ?? tabbedQueue[0].id);
   }
 
   const refreshQueue = useCallback(
@@ -505,10 +530,35 @@ export default function ProtectedHomePage() {
 
         <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <StatCard title="Calls Today" value="0" />
-          <StatCard title="Follow-ups Due" value={String(queue.filter((lead) => lead.computed_priority === 1).length)} />
-          <StatCard title="New Leads" value={String(queue.filter((lead) => lead.computed_priority === 2).length)} />
-          <StatCard title="Broth Bite Orders" value={String(queue.filter((lead) => lead.last_outcome === "converted_to_customer").length)} />
+          <StatCard title="Follow-ups Due" value={String(filteredQueue.filter((lead) => lead.computed_priority === 1).length)} />
+          <StatCard title={queueTab === "existing" ? "Existing Customers" : "Prospects"} value={String(filteredQueue.length)} />
+          <StatCard title="Broth Bite Orders" value={String(filteredQueue.filter((lead) => lead.last_outcome === "converted_to_customer").length)} />
         </section>
+
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            onClick={() => handleSelectQueueTab("existing")}
+            className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
+              queueTab === "existing"
+                ? "bg-slate-900 text-white"
+                : "border border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+            }`}
+          >
+            Existing Customers ({queue.filter((lead) => lead.has_invoice_history).length})
+          </button>
+          <button
+            type="button"
+            onClick={() => handleSelectQueueTab("prospects")}
+            className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
+              queueTab === "prospects"
+                ? "bg-slate-900 text-white"
+                : "border border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+            }`}
+          >
+            Prospects ({queue.filter((lead) => !lead.has_invoice_history).length})
+          </button>
+        </div>
 
         <section className="grid gap-6 lg:grid-cols-2">
           <LeadList

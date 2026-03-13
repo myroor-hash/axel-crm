@@ -45,6 +45,7 @@ type LeadRow = {
 
 type QueueLeadRow = Pick<
   LeadRow,
+  | "external_ref"
   | "id"
   | "shop_name"
   | "contact_name"
@@ -74,6 +75,11 @@ type QueueActivityRow = {
 type UserRow = {
   id: string;
   full_name: string;
+};
+
+type QueueInvoiceRow = {
+  customer_name: string | null;
+  customer_ref: string | null;
 };
 
 function normalizePhone(value: string | null | undefined): string {
@@ -185,12 +191,16 @@ export async function fetchLeadQueue(): Promise<LeadQueueItem[]> {
   const supabase = createBrowserSupabaseClient();
   const now = new Date().toISOString();
 
-  const [{ data: leads, error: leadsError }, { data: locks, error: locksError }] =
+  const [
+    { data: leads, error: leadsError },
+    { data: locks, error: locksError },
+    { data: invoices, error: invoicesError },
+  ] =
     await Promise.all([
       supabase
         .from("leads")
         .select(
-          "id, shop_name, contact_name, contact_first_name, contact_last_name, phone_number, postcode, town_city, status, last_outcome, last_contacted_at, next_follow_up_at, is_active"
+          "id, external_ref, shop_name, contact_name, contact_first_name, contact_last_name, phone_number, postcode, town_city, status, last_outcome, last_contacted_at, next_follow_up_at, is_active"
         )
         .or("is_active.is.null,is_active.eq.true"),
       supabase
@@ -199,6 +209,7 @@ export async function fetchLeadQueue(): Promise<LeadQueueItem[]> {
         .eq("is_active", true)
         .is("released_at", null)
         .gt("expires_at", now),
+      supabase.from("invoices").select("customer_name, customer_ref"),
     ]);
 
   if (leadsError) {
@@ -207,6 +218,10 @@ export async function fetchLeadQueue(): Promise<LeadQueueItem[]> {
 
   if (locksError) {
     throw new Error(`Failed to load lead locks: ${locksError.message}`);
+  }
+
+  if (invoicesError && invoicesError.code !== "42P01") {
+    throw new Error(`Failed to load invoice summary: ${invoicesError.message}`);
   }
 
   const queueLeads = (leads ?? []) as QueueLeadRow[];
@@ -251,6 +266,8 @@ export async function fetchLeadQueue(): Promise<LeadQueueItem[]> {
     }
   }
 
+  const invoiceRows = (invoices ?? []) as QueueInvoiceRow[];
+
   return queueLeads.map((lead) => ({
     id: lead.id,
     shop_name: lead.shop_name,
@@ -258,6 +275,22 @@ export async function fetchLeadQueue(): Promise<LeadQueueItem[]> {
     contact_name: buildContactName(lead),
     phone_number: lead.phone_number ?? null,
     postcode: lead.postcode ?? null,
+    has_invoice_history: invoiceRows.some((invoice) => {
+      const invoiceCustomerRef =
+        typeof invoice.customer_ref === "string" ? invoice.customer_ref : null;
+      const invoiceCustomerName =
+        typeof invoice.customer_name === "string" ? invoice.customer_name : null;
+      const leadCustomerRef =
+        "external_ref" in lead && typeof lead.external_ref === "string"
+          ? lead.external_ref
+          : null;
+
+      if (leadCustomerRef && invoiceCustomerRef === leadCustomerRef) {
+        return true;
+      }
+
+      return businessNamesMatch(invoiceCustomerName, lead.shop_name);
+    }),
     status: coerceLeadStatus(lead.status),
     last_outcome: lead.last_outcome ?? null,
     last_contacted_at: lead.last_contacted_at ?? null,

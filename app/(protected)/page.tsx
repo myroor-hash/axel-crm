@@ -61,6 +61,12 @@ function escapeCsvCell(value: string | null | undefined) {
   return text;
 }
 
+function preserveCsvText(value: string | null | undefined) {
+  const text = String(value ?? "");
+  if (!text) return "";
+  return `="${text.replace(/"/g, '""')}"`;
+}
+
 export default function ProtectedHomePage() {
   const [, setQueueClock] = useState(() => Date.now());
   const [baseQueue, setBaseQueue] = useState<LeadQueueItem[]>([]);
@@ -331,7 +337,7 @@ export default function ProtectedHomePage() {
         lead.customer_number ?? "",
         lead.shop_name,
         lead.contact_name ?? "",
-        lead.phone_number ?? "",
+        preserveCsvText(lead.phone_number),
         lead.postcode ?? "",
         lead.town_city ?? "",
         lead.computed_status_badge ?? lead.status,

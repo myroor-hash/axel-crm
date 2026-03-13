@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { ReactNode } from "react";
 
 export function PageHeader({
@@ -10,19 +11,33 @@ export function PageHeader({
   actions?: ReactNode;
 }) {
   return (
-    <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+    <div className="space-y-4">
       <div>
         <p className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-500">
           Axels CRM - lets get busy...
         </p>
+        <div className="mt-2 flex flex-wrap items-center gap-3 text-sm font-medium text-slate-600">
+          <Link href="/" className="transition hover:text-slate-900">
+            Home
+          </Link>
+          <span className="text-slate-300">/</span>
+          <Link href="/import" className="transition hover:text-slate-900">
+            Import
+          </Link>
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+        <div>
         <h1 className="mt-1 text-2xl font-semibold tracking-tight text-slate-900">
           {title}
         </h1>
         {description ? (
           <p className="mt-1 text-sm text-slate-600">{description}</p>
         ) : null}
+        </div>
+        {actions ? <div className="md:pt-1">{actions}</div> : null}
       </div>
-      {actions ? <div>{actions}</div> : null}
     </div>
   );
 }

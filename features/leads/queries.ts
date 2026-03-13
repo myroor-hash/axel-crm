@@ -1,114 +1,70 @@
+import { createBrowserSupabaseClient } from "@/lib/db/client";
 import type { LeadDetail, LeadQueueItem } from "@/features/leads/types";
 import type { ImportedLeadRow } from "@/features/import/types";
 
-const STORAGE_KEY = "axel-elixir-imported-customers";
-
-const seedQueue: LeadQueueItem[] = [
-  {
-    id: "lead-1",
-    shop_name: "Axel Health Store",
-    town_city: "Manchester",
-    contact_name: "Sarah Mitchell",
-    phone_number: "0161 555 1000",
-    postcode: "M1 1AA",
-    status: "new",
-    last_contacted_at: null,
-    is_locked: false,
-    locked_by_name: null,
-  },
-  {
-    id: "lead-2",
-    shop_name: "Urban Roots",
-    town_city: "Sheffield",
-    contact_name: "Tom Wilkes",
-    phone_number: "0114 555 2211",
-    postcode: "S1 2AB",
-    status: "follow_up_required",
-    last_contacted_at: "2026-03-10T10:00:00.000Z",
-    is_locked: false,
-    locked_by_name: null,
-  },
-  {
-    id: "lead-3",
-    shop_name: "Green Leaf Grocers",
-    town_city: "Leeds",
-    contact_name: "Mike Turner",
-    phone_number: "0113 555 9988",
-    postcode: "LS1 4ZZ",
-    status: "information_sent",
-    last_contacted_at: "2026-03-12T09:00:00.000Z",
-    is_locked: true,
-    locked_by_name: "Dan",
-  },
-];
-
-const seedDetails: Record<string, LeadDetail> = {
-  "lead-1": {
-    id: "lead-1",
-    external_ref: undefined,
-    shop_name: "Axel Health Store",
-    contact_first_name: "Sarah",
-    contact_last_name: "Mitchell",
-    phone_number: "0161 555 1000",
-    email: "sarah@example.com",
-    town_city: "Manchester",
-    county_region: "Greater Manchester",
-    postcode: "M1 1AA",
-    address_line_1: null,
-    address_line_2: null,
-    address_line_3: null,
-    lead_source_id: null,
-    status: "new",
-    customer_flag: false,
-    last_contacted_at: null,
-    next_follow_up_at: null,
-    priority_note: "Ask for the buyer on weekdays.",
-  },
-  "lead-2": {
-    id: "lead-2",
-    external_ref: undefined,
-    shop_name: "Urban Roots",
-    contact_first_name: "Tom",
-    contact_last_name: "Wilkes",
-    phone_number: "0114 555 2211",
-    email: "tom@example.com",
-    town_city: "Sheffield",
-    county_region: "South Yorkshire",
-    postcode: "S1 2AB",
-    address_line_1: null,
-    address_line_2: null,
-    address_line_3: null,
-    lead_source_id: null,
-    status: "follow_up_required",
-    customer_flag: false,
-    last_contacted_at: "2026-03-10T10:00:00.000Z",
-    next_follow_up_at: "2026-03-13T10:00:00.000Z",
-    priority_note: "Asked for a brochure.",
-  },
-  "lead-3": {
-    id: "lead-3",
-    external_ref: undefined,
-    shop_name: "Green Leaf Grocers",
-    contact_first_name: "Mike",
-    contact_last_name: "Turner",
-    phone_number: "0113 555 9988",
-    email: "mike@example.com",
-    town_city: "Leeds",
-    county_region: "West Yorkshire",
-    postcode: "LS1 4ZZ",
-    address_line_1: null,
-    address_line_2: null,
-    address_line_3: null,
-    lead_source_id: null,
-    status: "information_sent",
-    customer_flag: false,
-    last_contacted_at: "2026-03-12T09:00:00.000Z",
-    next_follow_up_at: "2026-03-19T09:00:00.000Z",
-    priority_note: "Dan is already working this one.",
-  },
+export type DbActivity = {
+  id: string;
+  lead_id: string;
+  activity_type: string;
+  action_label: string;
+  note_text: string | null;
+  created_at: string;
 };
 
-type StoredCustomer = LeadDetail;
+type LeadStatus = LeadQueueItem["status"];
+
+type LeadRow = {
+  id: string;
+  external_ref: string | null;
+  shop_name: string;
+  contact_name: string | null;
+  contact_first_name: string | null;
+  contact_last_name: string | null;
+  phone_number: string;
+  email: string | null;
+  address_line_1: string | null;
+  address_line_2: string | null;
+  address_line_3: string | null;
+  town_city: string | null;
+  county_region: string | null;
+  postcode: string | null;
+  lead_source_id: string | null;
+  status: string | null;
+  last_outcome: string | null;
+  customer_flag: boolean | null;
+  last_contacted_at: string | null;
+  next_follow_up_at: string | null;
+  priority_note: string | null;
+  imported_at: string | null;
+  is_active: boolean | null;
+};
+
+type QueueLeadRow = Pick<
+  LeadRow,
+  | "id"
+  | "shop_name"
+  | "contact_name"
+  | "contact_first_name"
+  | "contact_last_name"
+  | "phone_number"
+  | "postcode"
+  | "town_city"
+  | "status"
+  | "last_outcome"
+  | "last_contacted_at"
+  | "next_follow_up_at"
+  | "is_active"
+>;
+
+type LockRow = {
+  lead_id: string;
+  user_id: string;
+};
+
+type UserRow = {
+  id: string;
+  full_name: string;
+};
 
 function normalizePhone(value: string | null | undefined): string {
   return String(value ?? "").replace(/\s+/g, "").trim();
@@ -131,135 +87,424 @@ function splitContactName(name?: string) {
   };
 }
 
-function getStoredCustomers(): StoredCustomer[] {
-  if (typeof window === "undefined") return [];
+function buildContactName(lead: {
+  contact_name?: string | null;
+  contact_first_name?: string | null;
+  contact_last_name?: string | null;
+}) {
+  if (lead.contact_name) return lead.contact_name;
+  return [lead.contact_first_name, lead.contact_last_name]
+    .filter(Boolean)
+    .join(" ") || null;
+}
 
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw) as StoredCustomer[];
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
+function coerceLeadStatus(value: string | null | undefined): LeadStatus {
+  switch (value) {
+    case "new":
+    case "attempted_contact":
+    case "spoke_to_contact":
+    case "follow_up_required":
+    case "information_sent":
+    case "sample_sent":
+    case "customer":
+    case "dead_lead":
+      return value;
+    default:
+      return "new";
   }
 }
 
-function setStoredCustomers(customers: StoredCustomer[]) {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(customers));
-}
+function mapLeadDetail(row: LeadRow): LeadDetail {
+  const fallbackNames = splitContactName(row.contact_name ?? undefined);
 
-function buildContactName(lead: LeadDetail): string | null {
-  return [lead.contact_first_name, lead.contact_last_name].filter(Boolean).join(" ") || null;
+  return {
+    id: row.id,
+    external_ref: row.external_ref ?? undefined,
+    shop_name: row.shop_name,
+    contact_first_name: row.contact_first_name ?? fallbackNames.firstName,
+    contact_last_name: row.contact_last_name ?? fallbackNames.lastName,
+    phone_number: row.phone_number,
+    email: row.email,
+    town_city: row.town_city,
+    county_region: row.county_region,
+    postcode: row.postcode,
+    address_line_1: row.address_line_1,
+    address_line_2: row.address_line_2,
+    address_line_3: row.address_line_3,
+    lead_source_id: row.lead_source_id,
+    status: coerceLeadStatus(row.status),
+    customer_flag: row.customer_flag ?? false,
+    last_contacted_at: row.last_contacted_at,
+    next_follow_up_at: row.next_follow_up_at,
+    priority_note: row.priority_note,
+  };
 }
 
 export async function fetchLeadQueue(): Promise<LeadQueueItem[]> {
-  const stored = getStoredCustomers();
+  const supabase = createBrowserSupabaseClient();
+  const now = new Date().toISOString();
 
-  const storedQueue: LeadQueueItem[] = stored.map((customer) => ({
-    id: customer.id,
-    shop_name: customer.shop_name,
-    town_city: customer.town_city ?? null,
-    contact_name: buildContactName(customer),
-    phone_number: customer.phone_number ?? null,
-    postcode: customer.postcode ?? null,
-    status: customer.status,
-    last_contacted_at: customer.last_contacted_at,
-    is_locked: false,
-    locked_by_name: null,
+  const [{ data: leads, error: leadsError }, { data: locks, error: locksError }] =
+    await Promise.all([
+      supabase
+        .from("leads")
+        .select(
+          "id, shop_name, contact_name, contact_first_name, contact_last_name, phone_number, postcode, town_city, status, last_outcome, last_contacted_at, next_follow_up_at, is_active"
+        )
+        .or("is_active.is.null,is_active.eq.true"),
+      supabase
+        .from("lead_locks")
+        .select("lead_id, user_id")
+        .eq("is_active", true)
+        .is("released_at", null)
+        .gt("expires_at", now),
+    ]);
+
+  if (leadsError) {
+    throw new Error(`Failed to load leads: ${leadsError.message}`);
+  }
+
+  if (locksError) {
+    throw new Error(`Failed to load lead locks: ${locksError.message}`);
+  }
+
+  const activeLocks = (locks ?? []) as LockRow[];
+  const userIds = [...new Set(activeLocks.map((lock) => lock.user_id))];
+  const { data: users, error: usersError } = userIds.length
+    ? await supabase.from("users").select("id, full_name").in("id", userIds)
+    : { data: [] as UserRow[], error: null };
+
+  if (usersError) {
+    throw new Error(`Failed to load lock owners: ${usersError.message}`);
+  }
+
+  const userMap = new Map((users ?? []).map((user) => [user.id, user.full_name]));
+  const lockMap = new Map(
+    activeLocks.map((lock) => [
+      String(lock.lead_id),
+      (() => {
+        const fullName = userMap.get(String(lock.user_id));
+        return typeof fullName === "string" ? fullName : null;
+      })(),
+    ])
+  );
+
+  return ((leads ?? []) as QueueLeadRow[]).map((lead) => ({
+    id: lead.id,
+    shop_name: lead.shop_name,
+    town_city: lead.town_city ?? null,
+    contact_name: buildContactName(lead),
+    phone_number: lead.phone_number ?? null,
+    postcode: lead.postcode ?? null,
+    status: coerceLeadStatus(lead.status),
+    last_outcome: lead.last_outcome ?? null,
+    last_contacted_at: lead.last_contacted_at ?? null,
+    next_follow_up_at: lead.next_follow_up_at ?? null,
+    is_locked: lockMap.has(lead.id),
+    locked_by_name: lockMap.get(lead.id) ?? null,
   }));
-
-  return [...storedQueue, ...seedQueue];
 }
 
 export async function fetchLeadById(leadId: string): Promise<LeadDetail | null> {
-  const stored = getStoredCustomers();
-  const foundStored = stored.find((lead) => lead.id === leadId);
-  if (foundStored) return foundStored;
+  const supabase = createBrowserSupabaseClient();
 
-  return seedDetails[leadId] ?? null;
+  const { data, error } = await supabase
+    .from("leads")
+    .select(
+      "id, external_ref, shop_name, contact_name, contact_first_name, contact_last_name, phone_number, email, address_line_1, address_line_2, address_line_3, town_city, county_region, postcode, lead_source_id, status, customer_flag, last_contacted_at, next_follow_up_at, priority_note, imported_at, is_active"
+    )
+    .eq("id", leadId)
+    .single();
+
+  if (error) {
+    if (error.code === "PGRST116") return null;
+    throw new Error(`Failed to load lead: ${error.message}`);
+  }
+
+  return mapLeadDetail(data as LeadRow);
+}
+
+export async function fetchLeadActivities(leadId: string): Promise<DbActivity[]> {
+  const supabase = createBrowserSupabaseClient();
+
+  const { data, error } = await supabase
+    .from("lead_activities")
+    .select("id, lead_id, activity_type, action_label, note_text, created_at")
+    .eq("lead_id", leadId)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    throw new Error(`Failed to load activities: ${error.message}`);
+  }
+
+  return (data ?? []) as DbActivity[];
+}
+
+export async function recordLeadActivity(args: {
+  leadId: string;
+  activityType: string;
+  actionLabel: string;
+  noteText?: string;
+  callOutcome?: string | null;
+  previousStatus?: LeadStatus | null;
+  newStatus?: LeadStatus | null;
+  followUpSetFor?: string | null;
+}): Promise<void> {
+  const supabase = createBrowserSupabaseClient();
+
+  const { error } = await supabase.from("lead_activities").insert({
+    lead_id: args.leadId,
+    activity_type: args.activityType,
+    action_label: args.actionLabel,
+    note_text: args.noteText ?? null,
+    call_outcome: args.callOutcome ?? null,
+    previous_status: args.previousStatus ?? null,
+    new_status: args.newStatus ?? null,
+    follow_up_set_for: args.followUpSetFor ?? null,
+  });
+
+  if (error) {
+    throw new Error(`Failed to record activity: ${error.message}`);
+  }
 }
 
 export async function importCustomers(args: {
   rows: ImportedLeadRow[];
   leadSourceId: string;
 }): Promise<{ imported: number; skipped: number }> {
-  const existing = getStoredCustomers();
-  let imported = 0;
-  let skipped = 0;
+  const supabase = createBrowserSupabaseClient();
 
-  const working = [...existing];
+  const { data: existingRows, error: existingError } = await supabase
+    .from("leads")
+    .select("external_ref, phone_number");
+
+  if (existingError) {
+    throw new Error(`Failed to check duplicates: ${existingError.message}`);
+  }
+
+  const seenRefs = new Set(
+    (existingRows ?? [])
+      .map((lead) =>
+        typeof lead.external_ref === "string"
+          ? lead.external_ref.trim().toLowerCase()
+          : null
+      )
+      .filter((value): value is string => Boolean(value))
+  );
+  const seenPhones = new Set(
+    (existingRows ?? [])
+      .map((lead) =>
+        typeof lead.phone_number === "string" ? normalizePhone(lead.phone_number) : ""
+      )
+      .filter(Boolean)
+  );
+
+  let skipped = 0;
+  const inserts: Array<Record<string, unknown>> = [];
 
   for (const row of args.rows) {
     const normalizedPhone = normalizePhone(row.phone_number);
-    const externalRef = row.external_ref?.trim();
+    const externalRef = row.external_ref?.trim() || null;
+    const normalizedRef = externalRef?.toLowerCase() ?? null;
 
-    const duplicateInStored = working.some((lead) => {
-      const sameRef =
-        externalRef &&
-        lead.external_ref &&
-        lead.external_ref.trim().toLowerCase() === externalRef.toLowerCase();
-
-      const samePhone =
-        normalizedPhone &&
-        normalizePhone(lead.phone_number) === normalizedPhone;
-
-      return Boolean(sameRef || samePhone);
-    });
-
-    const duplicateInSeed = Object.values(seedDetails).some((lead) => {
-      const sameRef =
-        externalRef &&
-        lead.external_ref &&
-        lead.external_ref.trim().toLowerCase() === externalRef.toLowerCase();
-
-      const samePhone =
-        normalizedPhone &&
-        normalizePhone(lead.phone_number) === normalizedPhone;
-
-      return Boolean(sameRef || samePhone);
-    });
-
-    if (duplicateInStored || duplicateInSeed) {
+    if (
+      (normalizedRef && seenRefs.has(normalizedRef)) ||
+      (normalizedPhone && seenPhones.has(normalizedPhone))
+    ) {
       skipped += 1;
       continue;
     }
 
-    const id = `imported-${Date.now()}-${imported + 1}`;
     const { firstName, lastName } = splitContactName(row.contact_name);
 
-    const detail: LeadDetail = {
-      id,
+    inserts.push({
       external_ref: externalRef,
       shop_name: row.shop_name,
+      contact_name: row.contact_name?.trim() || null,
       contact_first_name: firstName,
       contact_last_name: lastName,
       phone_number: row.phone_number,
       email: row.email ?? null,
-      town_city: row.town_city ?? null,
-      county_region: row.county_region ?? null,
-      postcode: row.postcode ?? null,
       address_line_1: row.address_line_1 ?? null,
       address_line_2: row.address_line_2 ?? null,
       address_line_3: row.address_line_3 ?? null,
+      town_city: row.town_city ?? null,
+      county_region: row.county_region ?? null,
+      postcode: row.postcode ?? null,
       lead_source_id: args.leadSourceId,
-      status: "customer",
       customer_flag: true,
-      last_contacted_at: null,
-      next_follow_up_at: null,
+      status: "customer",
       priority_note: row.priority_note ?? null,
-    };
+      imported_at: new Date().toISOString(),
+      is_active: true,
+    });
 
-    working.push(detail);
-    imported += 1;
+    if (normalizedRef) {
+      seenRefs.add(normalizedRef);
+    }
+    if (normalizedPhone) {
+      seenPhones.add(normalizedPhone);
+    }
   }
 
-  setStoredCustomers(working);
+  if (inserts.length > 0) {
+    const { error: insertError } = await supabase.from("leads").insert(inserts);
 
-  return { imported, skipped };
+    if (insertError) {
+      throw new Error(`Failed to import customers: ${insertError.message}`);
+    }
+  }
+
+  return { imported: inserts.length, skipped };
 }
 
 export async function clearImportedCustomers(): Promise<void> {
-  setStoredCustomers([]);
+  const supabase = createBrowserSupabaseClient();
+
+  const { error } = await supabase
+    .from("leads")
+    .delete()
+    .not("imported_at", "is", null)
+    .is("last_contacted_at", null)
+    .eq("status", "customer");
+
+  if (error) {
+    throw new Error(`Failed to clear imported customers: ${error.message}`);
+  }
 }
 
+function mapCallAction(action: string): {
+  status: LeadStatus;
+  callOutcome: string | null;
+  followUpAt: string | null;
+} {
+  const now = new Date();
+
+  switch (action) {
+    case "No Answer":
+      return {
+        status: "attempted_contact",
+        callOutcome: "no_answer",
+        followUpAt: null,
+      };
+    case "Gatekeeper":
+      return {
+        status: "attempted_contact",
+        callOutcome: "gatekeeper_only",
+        followUpAt: null,
+      };
+    case "Spoke to Buyer":
+      return {
+        status: "spoke_to_contact",
+        callOutcome: "spoke_to_buyer",
+        followUpAt: null,
+      };
+    case "Send Info":
+      return {
+        status: "information_sent",
+        callOutcome: "send_information",
+        followUpAt: new Date(now.getTime() + 72 * 60 * 60 * 1000).toISOString(),
+      };
+    case "Ordered Broth Bites":
+      return {
+        status: "customer",
+        callOutcome: "converted_to_customer",
+        followUpAt: null,
+      };
+    default:
+      return {
+        status: "attempted_contact",
+        callOutcome: null,
+        followUpAt: null,
+      };
+  }
+}
+
+export async function recordCallOutcome(args: {
+  leadId: string;
+  actionLabel: string;
+  noteText?: string;
+  previousStatus?: LeadStatus | null;
+}): Promise<{
+  status: LeadStatus;
+  lastContactedAt: string;
+  nextFollowUpAt: string | null;
+}> {
+  const supabase = createBrowserSupabaseClient();
+  const now = new Date().toISOString();
+  const mapped = mapCallAction(args.actionLabel);
+
+  const { error: updateError } = await supabase
+    .from("leads")
+    .update({
+      status: mapped.status,
+      last_contacted_at: now,
+      next_follow_up_at: mapped.followUpAt,
+      last_outcome: mapped.callOutcome,
+    })
+    .eq("id", args.leadId);
+
+  if (updateError) {
+    throw new Error(`Failed to update lead after call: ${updateError.message}`);
+  }
+
+  await recordLeadActivity({
+    leadId: args.leadId,
+    activityType: "call",
+    actionLabel: args.actionLabel,
+    noteText: args.noteText,
+    callOutcome: mapped.callOutcome,
+    previousStatus: args.previousStatus ?? null,
+    newStatus: mapped.status,
+    followUpSetFor: mapped.followUpAt,
+  });
+
+  return {
+    status: mapped.status,
+    lastContactedAt: now,
+    nextFollowUpAt: mapped.followUpAt,
+  };
+}
+
+export async function recordEmailSent(args: {
+  leadId: string;
+  actionLabel: string;
+  noteText?: string;
+  previousStatus?: LeadStatus | null;
+}): Promise<{
+  status: LeadStatus;
+  nextFollowUpAt: string | null;
+}> {
+  const supabase = createBrowserSupabaseClient();
+  const followUpAt = new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString();
+  const status: LeadStatus = "information_sent";
+
+  const { error: updateError } = await supabase
+    .from("leads")
+    .update({
+      status,
+      next_follow_up_at: followUpAt,
+      last_outcome: "send_information",
+    })
+    .eq("id", args.leadId);
+
+  if (updateError) {
+    throw new Error(`Failed to update lead after email: ${updateError.message}`);
+  }
+
+  await recordLeadActivity({
+    leadId: args.leadId,
+    activityType: "email_sent",
+    actionLabel: args.actionLabel,
+    noteText: args.noteText,
+    callOutcome: "send_information",
+    previousStatus: args.previousStatus ?? null,
+    newStatus: status,
+    followUpSetFor: followUpAt,
+  });
+
+  return {
+    status,
+    nextFollowUpAt: followUpAt,
+  };
+}

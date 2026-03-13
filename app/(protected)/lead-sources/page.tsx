@@ -1,4 +1,5 @@
 import { LeadSourceManager } from "@/components/admin/lead-source-manager";
+import { LogoutButton } from "@/components/auth/logout-button";
 import { PageHeader } from "@/components/layout/page-header";
 
 export default function LeadSourcesPage() {
@@ -8,6 +9,7 @@ export default function LeadSourcesPage() {
         <PageHeader
           title="Lead Sources"
           description="Manage the source names used across imports and sales reporting."
+          actions={<LogoutButton />}
         />
 
         <LeadSourceManager />

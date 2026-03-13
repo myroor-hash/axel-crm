@@ -1,15 +1,23 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { PageHeader } from "@/components/layout/page-header";
 import { StatCard } from "@/components/dashboard/stat-card";
 import { LeadList } from "@/components/leads/lead-list";
 import { LeadDetailPanel } from "@/components/leads/lead-detail-panel";
 import { NextLeadButton } from "@/components/leads/next-lead-button";
 import { EmailComposePanel } from "@/components/leads/email-compose-panel";
-import { fetchLeadById, fetchLeadQueue } from "@/features/leads/queries";
+import {
+  fetchLeadActivities,
+  fetchLeadById,
+  fetchLeadQueue,
+  recordCallOutcome,
+  recordEmailSent,
+  type DbActivity,
+} from "@/features/leads/queries";
 import { getLeadReadOnlyState } from "@/features/locks/queries";
 import { fetchAttachmentOptions } from "@/features/attachments/queries";
+import { LogoutButton } from "@/components/auth/logout-button";
 import type { LeadDetail, LeadQueueItem } from "@/features/leads/types";
 import type { LeadReadOnlyState } from "@/features/locks/types";
 import type { AttachmentOption } from "@/features/attachments/types";
@@ -27,6 +35,17 @@ type ContactState = {
 };
 
 type PanelMode = "lead" | "email";
+
+function mapDbActivities(rows: DbActivity[]): Activity[] {
+  return rows.map((row) => ({
+    time: new Date(row.created_at).toLocaleTimeString("en-GB", {
+      hour: "2-digit",
+      minute: "2-digit",
+    }),
+    action: row.action_label,
+    note: row.note_text ?? undefined,
+  }));
+}
 
 export default function ProtectedHomePage() {
   const [baseQueue, setBaseQueue] = useState<LeadQueueItem[]>([]);
@@ -46,10 +65,13 @@ export default function ProtectedHomePage() {
       const rows = await fetchLeadQueue();
       setBaseQueue(rows);
 
-      if (!selectedLeadId && rows.length > 0) {
-        const firstUnlocked = rows.find((lead) => !lead.is_locked);
-        setSelectedLeadId(firstUnlocked?.id ?? rows[0].id);
+      if (rows.length === 0) {
+        setSelectedLeadId(null);
+        return;
       }
+
+      const firstUnlocked = rows.find((lead) => !lead.is_locked);
+      setSelectedLeadId(firstUnlocked?.id ?? rows[0].id);
     }
 
     async function loadAttachments() {
@@ -59,7 +81,7 @@ export default function ProtectedHomePage() {
 
     loadQueue();
     loadAttachments();
-  }, [selectedLeadId]);
+  }, []);
 
   useEffect(() => {
     async function loadLead() {
@@ -81,19 +103,43 @@ export default function ProtectedHomePage() {
     loadLead();
   }, [selectedLeadId]);
 
+  useEffect(() => {
+    async function loadActivities() {
+      if (!selectedLeadId) return;
+
+      const dbRows = await fetchLeadActivities(selectedLeadId);
+      const mapped = mapDbActivities(dbRows);
+
+      setActivityMap((prev) => ({
+        ...prev,
+        [selectedLeadId]: mapped,
+      }));
+
+      setLastActionMap((prev) => ({
+        ...prev,
+        [selectedLeadId]: mapped[0]?.action ?? null,
+      }));
+    }
+
+    loadActivities();
+  }, [selectedLeadId]);
+
   const queue = useMemo(() => {
     const now = new Date();
 
     function enrichLead(lead: LeadQueueItem) {
       const contactState = contactStateMap[lead.id];
       const lastContactAt = contactState?.lastContactAt ?? lead.last_contacted_at ?? null;
-      const followUpAt = contactState?.followUpAt ?? null;
+      const followUpAt =
+        contactState?.followUpAt ?? lead.next_follow_up_at ?? null;
 
       let statusBadge = "○ NEW";
       if (contactState?.statusLabel) {
         statusBadge = contactState.statusLabel;
       } else if (lead.status === "customer") {
         statusBadge = "◆ CUSTOMER";
+      } else if (followUpAt) {
+        statusBadge = "● FOLLOW UP";
       } else if (lastContactAt) {
         statusBadge = "◐ CALLED";
       }
@@ -195,9 +241,36 @@ export default function ProtectedHomePage() {
     setShowUnfinishedWarning(false);
   }
 
-  function handleRecordActivity(leadId: string, action: string, note?: string) {
+  const refreshQueue = useCallback(
+    async (preferredLeadId?: string | null) => {
+      const rows = await fetchLeadQueue();
+      setBaseQueue(rows);
+
+      const targetLeadId = preferredLeadId ?? selectedLeadId;
+      if (rows.length === 0) {
+        setSelectedLeadId(null);
+        return;
+      }
+
+      if (targetLeadId && rows.some((lead) => lead.id === targetLeadId)) {
+        setSelectedLeadId(targetLeadId);
+        return;
+      }
+
+      const firstUnlocked = rows.find((lead) => !lead.is_locked);
+      setSelectedLeadId(firstUnlocked?.id ?? rows[0].id);
+    },
+    [selectedLeadId]
+  );
+
+  async function handleRecordActivity(leadId: string, action: string, note?: string) {
     const now = new Date();
-    const nowIso = now.toISOString();
+    const result = await recordCallOutcome({
+      leadId,
+      actionLabel: action,
+      noteText: note,
+      previousStatus: selectedLead?.status ?? null,
+    });
 
     const newActivity: Activity = {
       time: now.toLocaleTimeString("en-GB", {
@@ -220,34 +293,33 @@ export default function ProtectedHomePage() {
 
     setContactStateMap((prev) => {
       const existing = prev[leadId] ?? {};
-      let statusLabel = "◐ CALLED";
-      let followUpAt = existing.followUpAt;
-
-      if (action === "Send Info") {
-        statusLabel = "● FOLLOW UP";
-        followUpAt = new Date(now.getTime() + 72 * 60 * 60 * 1000).toISOString();
-      } else {
-        statusLabel = "◐ CALLED";
-        followUpAt = undefined;
-      }
+      const statusLabel =
+        result.status === "information_sent" || Boolean(result.nextFollowUpAt)
+          ? "● FOLLOW UP"
+          : result.status === "customer"
+            ? "◆ CUSTOMER"
+            : "◐ CALLED";
+      const followUpAt = result.nextFollowUpAt ?? undefined;
 
       return {
         ...prev,
         [leadId]: {
           ...existing,
-          lastContactAt: nowIso,
+          lastContactAt: result.lastContactedAt,
           followUpAt,
           statusLabel,
         },
       };
     });
+
+    await refreshQueue(leadId);
   }
 
   function handleOpenPreparedEmail() {
     setPanelMode("email");
   }
 
-  function handlePreparedEmailSend(payload: {
+  async function handlePreparedEmailSend(payload: {
     subject: string;
     body: string;
     attachmentId: string;
@@ -255,6 +327,14 @@ export default function ProtectedHomePage() {
     if (!selectedLeadId) return;
 
     const attachment = attachments.find((file) => file.id === payload.attachmentId);
+    const action = `Email Sent${attachment ? ` — ${attachment.fileName}` : ""}`;
+
+    const result = await recordEmailSent({
+      leadId: selectedLeadId,
+      actionLabel: action,
+      noteText: payload.subject,
+      previousStatus: selectedLead?.status ?? null,
+    });
 
     const now = new Date();
     const activity: Activity = {
@@ -262,7 +342,7 @@ export default function ProtectedHomePage() {
         hour: "2-digit",
         minute: "2-digit",
       }),
-      action: `Email Sent${attachment ? ` — ${attachment.fileName}` : ""}`,
+      action,
       note: payload.subject,
     };
 
@@ -270,6 +350,22 @@ export default function ProtectedHomePage() {
       ...prev,
       [selectedLeadId]: [activity, ...(prev[selectedLeadId] ?? [])],
     }));
+
+    setLastActionMap((prev) => ({
+      ...prev,
+      [selectedLeadId]: action,
+    }));
+
+    setContactStateMap((prev) => ({
+      ...prev,
+      [selectedLeadId]: {
+        ...(prev[selectedLeadId] ?? {}),
+        followUpAt: result.nextFollowUpAt ?? undefined,
+        statusLabel: "● FOLLOW UP",
+      },
+    }));
+
+    await refreshQueue(selectedLeadId);
 
     setPanelMode("lead");
 
@@ -312,7 +408,12 @@ export default function ProtectedHomePage() {
         <PageHeader
           title="Call Queue"
           description="Follow-ups first, then untouched leads, then oldest contacted leads."
-          actions={<NextLeadButton onClick={handleCallNextLead} />}
+          actions={
+            <div className="flex flex-wrap items-center gap-3">
+              <NextLeadButton onClick={handleCallNextLead} />
+              <LogoutButton />
+            </div>
+          }
         />
 
         <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -361,7 +462,7 @@ export default function ProtectedHomePage() {
           <StatCard title="Calls Today" value="0" />
           <StatCard title="Follow-ups Due" value={String(queue.filter((lead) => lead.computed_priority === 1).length)} />
           <StatCard title="New Leads" value={String(queue.filter((lead) => lead.computed_priority === 2).length)} />
-          <StatCard title="Customers Won" value={String(queue.filter((lead) => lead.status === "customer").length)} />
+          <StatCard title="Broth Bite Orders" value={String(queue.filter((lead) => lead.last_outcome === "converted_to_customer").length)} />
         </section>
 
         <section className="grid gap-6 lg:grid-cols-2">
@@ -380,6 +481,7 @@ export default function ProtectedHomePage() {
             />
           ) : (
             <LeadDetailPanel
+              key={selectedLead?.id ?? "no-lead"}
               lead={selectedLead}
               readOnlyState={readOnlyState}
               onAdvanceLead={handleAdvanceLead}
@@ -394,4 +496,3 @@ export default function ProtectedHomePage() {
     </main>
   );
 }
-

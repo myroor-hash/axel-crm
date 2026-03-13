@@ -1,13 +1,30 @@
-export default function LoginPage() {
+import { redirect } from "next/navigation";
+import { LoginForm } from "@/components/auth/login-form";
+import { getCurrentUser } from "@/lib/auth/session";
+
+export default async function LoginPage() {
+  const user = await getCurrentUser();
+
+  if (user) {
+    redirect("/");
+  }
+
   return (
-    <main className="min-h-screen bg-slate-50 flex items-center justify-center p-6">
-      <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
-        <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
-          Axel Elixir CRM
+    <main className="flex min-h-screen items-center justify-center bg-slate-50 p-6">
+      <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
+        <p className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-500">
+          Axels CRM - lets get busy...
+        </p>
+        <h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-900">
+          Sign In
         </h1>
         <p className="mt-2 text-sm text-slate-600">
-          Login screen coming next.
+          Enter Dan&apos;s email address and we&apos;ll send a secure sign-in link.
         </p>
+
+        <div className="mt-6">
+          <LoginForm />
+        </div>
       </div>
     </main>
   );

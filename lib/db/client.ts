@@ -1,5 +1,4 @@
-import { cookies } from "next/headers";
-import { createServerClient } from "@supabase/ssr";
+import { createClient } from "@supabase/supabase-js";
 
 type GenericTable = {
   Row: Record<string, unknown>;
@@ -20,7 +19,13 @@ type GenericDatabase = {
   public: GenericSchema;
 };
 
-export async function createServerSupabaseClient() {
+let browserClient: ReturnType<typeof createClient<GenericDatabase>> | undefined;
+
+export function createBrowserSupabaseClient() {
+  if (browserClient) {
+    return browserClient;
+  }
+
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
@@ -28,22 +33,6 @@ export async function createServerSupabaseClient() {
     throw new Error("Missing Supabase environment variables.");
   }
 
-  const cookieStore = await cookies();
-
-  return createServerClient<GenericDatabase>(supabaseUrl, supabaseAnonKey, {
-    cookies: {
-      getAll() {
-        return cookieStore.getAll();
-      },
-      setAll(cookiesToSet) {
-        try {
-          cookiesToSet.forEach(({ name, value, options }) => {
-            cookieStore.set(name, value, options);
-          });
-        } catch {
-          // Ignore cookie writes from server components.
-        }
-      },
-    },
-  });
+  browserClient = createClient<GenericDatabase>(supabaseUrl, supabaseAnonKey);
+  return browserClient;
 }

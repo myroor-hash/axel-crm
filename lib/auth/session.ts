@@ -1,7 +1,7 @@
 import { createServerSupabaseClient } from "@/lib/db/server";
 
 export async function getCurrentUser() {
-  const supabase = createServerSupabaseClient();
+  const supabase = await createServerSupabaseClient();
 
   const {
     data: { user },
@@ -9,4 +9,3 @@ export async function getCurrentUser() {
 
   return user;
 }
-

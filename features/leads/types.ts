@@ -16,7 +16,9 @@ export interface LeadQueueItem {
   phone_number?: string | null;
   postcode?: string | null;
   status: LeadStatus;
+  last_outcome?: string | null;
   last_contacted_at: string | null;
+  next_follow_up_at?: string | null;
   is_locked: boolean;
   locked_by_name: string | null;
 }
@@ -42,4 +44,3 @@ export interface LeadDetail {
   next_follow_up_at: string | null;
   priority_note: string | null;
 }
-

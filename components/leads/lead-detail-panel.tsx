@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type { LeadDetail } from "@/features/leads/types";
 import type { LeadReadOnlyState } from "@/features/locks/types";
 
@@ -29,10 +29,6 @@ export function LeadDetailPanel({
 }) {
   const [note, setNote] = useState("");
 
-  useEffect(() => {
-    setNote("");
-  }, [lead?.id]);
-
   if (!lead) {
     return (
       <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -41,20 +37,21 @@ export function LeadDetailPanel({
     );
   }
 
+  const activeLead = lead;
   const isReadOnly = readOnlyState?.isReadOnly ?? false;
 
   const contactName =
-    [lead.contact_first_name, lead.contact_last_name]
+    [activeLead.contact_first_name, activeLead.contact_last_name]
       .filter(Boolean)
       .join(" ") || "Unknown";
 
   function handleOutcome(action: string) {
     if (isReadOnly) return;
 
-    onRecordActivity(lead.id, action, note || undefined);
+    onRecordActivity(activeLead.id, action, note || undefined);
 
     if (action === "Send Info") {
-      onOpenPreparedEmail(lead.id);
+      onOpenPreparedEmail(activeLead.id);
       return;
     }
 
@@ -79,7 +76,7 @@ export function LeadDetailPanel({
     <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
       <div className="border-b border-slate-100 pb-4">
         <h2 className="text-xl font-semibold text-slate-900">
-          {lead.shop_name}
+          {activeLead.shop_name}
         </h2>
 
         <p className="mt-1 text-sm text-slate-600">
@@ -97,18 +94,18 @@ export function LeadDetailPanel({
 
         <div>
           <p className="text-xs uppercase text-slate-500">Phone</p>
-          <p>{lead.phone_number}</p>
+          <p>{activeLead.phone_number}</p>
         </div>
 
         <div>
           <p className="text-xs uppercase text-slate-500">Email</p>
-          <p>{lead.email ?? "—"}</p>
+          <p>{activeLead.email ?? "—"}</p>
         </div>
 
         <div>
           <p className="text-xs uppercase text-slate-500">Location</p>
           <p>
-            {[lead.town_city, lead.county_region, lead.postcode]
+            {[activeLead.town_city, activeLead.county_region, activeLead.postcode]
               .filter(Boolean)
               .join(", ") || "—"}
           </p>
@@ -116,7 +113,7 @@ export function LeadDetailPanel({
 
         <div>
           <p className="text-xs uppercase text-slate-500">Priority Note</p>
-          <p>{lead.priority_note ?? "—"}</p>
+          <p>{activeLead.priority_note ?? "—"}</p>
         </div>
       </div>
 
@@ -171,6 +168,15 @@ export function LeadDetailPanel({
             className={outcomeButtonClass("Send Info")}
           >
             Send Info
+          </button>
+
+          <button
+            type="button"
+            disabled={isReadOnly}
+            onClick={() => handleOutcome("Ordered Broth Bites")}
+            className={outcomeButtonClass("Ordered Broth Bites")}
+          >
+            Ordered Broth Bites
           </button>
         </div>
 

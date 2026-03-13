@@ -543,9 +543,9 @@ export default function ProtectedHomePage() {
 
         <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <StatCard title="Calls Today" value="0" />
-          <StatCard title="Follow-ups" value={String(filteredQueue.filter((lead) => Boolean(lead.computed_follow_up_at)).length)} />
+          <StatCard title="Follow-ups" value={String(queue.filter((lead) => Boolean(lead.computed_follow_up_at)).length)} />
           <StatCard title={queueTab === "existing" ? "Existing Customers" : "Prospects"} value={String(filteredQueue.length)} />
-          <StatCard title="Broth Bite Orders" value={String(filteredQueue.filter((lead) => lead.last_outcome === "converted_to_customer").length)} />
+          <StatCard title="Broth Bite Orders" value={String(queue.filter((lead) => lead.last_outcome === "converted_to_customer").length)} />
         </section>
 
         <div className="flex flex-wrap items-center gap-3">

@@ -75,6 +75,10 @@ export function LeadDetailPanel({
     setNote("");
     setManualFollowUpAt("");
 
+    if (scheduledFollowUpAt) {
+      return;
+    }
+
     setTimeout(() => {
       onAdvanceLead();
     }, 250);

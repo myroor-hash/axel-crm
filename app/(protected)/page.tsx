@@ -163,6 +163,8 @@ export default function ProtectedHomePage() {
       const lastContactAt = contactState?.lastContactAt ?? lead.last_contacted_at ?? null;
       const followUpAt =
         contactState?.followUpAt ?? lead.next_follow_up_at ?? null;
+      const hasRecordedOutcome = Boolean(lead.last_outcome);
+      const hasContactHistory = Boolean(lastContactAt || hasRecordedOutcome);
 
       const followUpDue =
         Boolean(followUpAt) && new Date(followUpAt as string).getTime() <= now.getTime();
@@ -174,11 +176,11 @@ export default function ProtectedHomePage() {
         statusBadge = "Follow Up Due";
       } else if (followUpAt) {
         statusBadge = "Follow Up Scheduled";
-      } else if (lastContactAt) {
+      } else if (hasContactHistory) {
         statusBadge = "Contacted";
       }
 
-      const neverContacted = !lastContactAt && lead.status !== "customer";
+      const neverContacted = !hasContactHistory;
 
       let priority = 3;
       if (followUpDue) priority = 1;

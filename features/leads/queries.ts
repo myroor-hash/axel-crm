@@ -148,7 +148,31 @@ function mapLeadDetail(row: LeadRow): LeadDetail {
 function normalizeBusinessName(value: string | null | undefined) {
   return String(value ?? "")
     .toLowerCase()
+    .replace(/\b(limited|ltd|llp|limited liability partnership|co|company)\b/g, "")
     .replace(/[^a-z0-9]/g, "");
+}
+
+function businessNamesMatch(left: string | null | undefined, right: string | null | undefined) {
+  const normalizedLeft = normalizeBusinessName(left);
+  const normalizedRight = normalizeBusinessName(right);
+
+  if (!normalizedLeft || !normalizedRight) {
+    return false;
+  }
+
+  if (normalizedLeft === normalizedRight) {
+    return true;
+  }
+
+  const shorterLength = Math.min(normalizedLeft.length, normalizedRight.length);
+  if (shorterLength < 6) {
+    return false;
+  }
+
+  return (
+    normalizedLeft.includes(normalizedRight) ||
+    normalizedRight.includes(normalizedLeft)
+  );
 }
 
 export async function fetchLeadQueue(): Promise<LeadQueueItem[]> {
@@ -257,8 +281,6 @@ export async function fetchLeadInvoices(
     throw new Error(`Failed to load invoices: ${error.message}`);
   }
 
-  const normalizedTargetName = normalizeBusinessName(lead.shop_name);
-
   return (data ?? [])
     .filter((row) => {
       const rowCustomerRef =
@@ -270,7 +292,7 @@ export async function fetchLeadInvoices(
         return true;
       }
 
-      return normalizeBusinessName(rowCustomerName) === normalizedTargetName;
+      return businessNamesMatch(rowCustomerName, lead.shop_name);
     })
     .slice(0, 10)
     .map((row) => ({

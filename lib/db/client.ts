@@ -1,4 +1,4 @@
-import { createClient } from "@supabase/supabase-js";
+import { createBrowserClient } from "@supabase/ssr";
 
 type GenericTable = {
   Row: Record<string, unknown>;
@@ -19,7 +19,9 @@ type GenericDatabase = {
   public: GenericSchema;
 };
 
-let browserClient: ReturnType<typeof createClient<GenericDatabase>> | undefined;
+let browserClient:
+  | ReturnType<typeof createBrowserClient<GenericDatabase>>
+  | undefined;
 
 export function createBrowserSupabaseClient() {
   if (browserClient) {
@@ -33,6 +35,9 @@ export function createBrowserSupabaseClient() {
     throw new Error("Missing Supabase environment variables.");
   }
 
-  browserClient = createClient<GenericDatabase>(supabaseUrl, supabaseAnonKey);
+  browserClient = createBrowserClient<GenericDatabase>(
+    supabaseUrl,
+    supabaseAnonKey
+  );
   return browserClient;
 }

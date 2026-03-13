@@ -53,6 +53,14 @@ function mapDbActivities(rows: DbActivity[]): Activity[] {
   }));
 }
 
+function escapeCsvCell(value: string | null | undefined) {
+  const text = String(value ?? "");
+  if (/[",\n]/.test(text)) {
+    return `"${text.replace(/"/g, '""')}"`;
+  }
+  return text;
+}
+
 export default function ProtectedHomePage() {
   const [, setQueueClock] = useState(() => Date.now());
   const [baseQueue, setBaseQueue] = useState<LeadQueueItem[]>([]);
@@ -317,6 +325,48 @@ export default function ProtectedHomePage() {
     setSelectedLeadId(firstUnlocked?.id ?? nextTabQueue[0].id);
   }
 
+  function handleExportCurrentTab() {
+    const rows = tabQueue.map((lead) =>
+      [
+        lead.customer_number ?? "",
+        lead.shop_name,
+        lead.contact_name ?? "",
+        lead.phone_number ?? "",
+        lead.postcode ?? "",
+        lead.town_city ?? "",
+        lead.computed_status_badge ?? lead.status,
+        lead.last_contacted_at ?? "",
+        lead.computed_follow_up_at ?? "",
+      ]
+        .map(escapeCsvCell)
+        .join(",")
+    );
+
+    const csv = [
+      [
+        "customer_number",
+        "shop_name",
+        "contact_name",
+        "phone_number",
+        "postcode",
+        "town_city",
+        "status",
+        "last_contacted_at",
+        "follow_up_at",
+      ].join(","),
+      ...rows,
+    ].join("\n");
+
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    const dateStamp = new Date().toISOString().slice(0, 10);
+    link.href = url;
+    link.download = `${queueTab}-queue-${dateStamp}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
   const refreshQueue = useCallback(
     async (preferredLeadId?: string | null) => {
       const rows = await fetchLeadQueue();
@@ -493,6 +543,13 @@ export default function ProtectedHomePage() {
           description="Follow-ups first, then untouched leads, then oldest contacted leads."
           actions={
             <div className="flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                onClick={handleExportCurrentTab}
+                className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-900 transition hover:bg-slate-50 active:scale-[0.98]"
+              >
+                Export {queueTab === "existing" ? "Existing" : "Prospects"} CSV
+              </button>
               <NextLeadButton onClick={handleCallNextLead} />
               <LogoutButton />
             </div>

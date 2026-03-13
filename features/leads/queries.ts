@@ -270,6 +270,7 @@ export async function fetchLeadQueue(): Promise<LeadQueueItem[]> {
 
   return queueLeads.map((lead) => ({
     id: lead.id,
+    customer_number: lead.external_ref ?? null,
     shop_name: lead.shop_name,
     town_city: lead.town_city ?? null,
     contact_name: buildContactName(lead),

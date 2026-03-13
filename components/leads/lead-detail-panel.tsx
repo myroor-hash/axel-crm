@@ -53,14 +53,14 @@ export function LeadDetailPanel({
       .filter(Boolean)
       .join(" ") || "Unknown";
 
-  function handleOutcome(action: string) {
+  async function handleOutcome(action: string) {
     if (isReadOnly) return;
 
     const scheduledFollowUpAt = manualFollowUpAt
       ? new Date(manualFollowUpAt).toISOString()
       : undefined;
 
-    onRecordActivity(
+    await onRecordActivity(
       activeLead.id,
       action,
       note || undefined,

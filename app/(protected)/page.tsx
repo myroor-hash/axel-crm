@@ -187,10 +187,12 @@ export default function ProtectedHomePage() {
       }
 
       const neverContacted = !hasContactHistory;
+      const followUpScheduled = Boolean(followUpAt) && !followUpDue;
 
-      let priority = 3;
+      let priority = 4;
       if (followUpDue) priority = 1;
-      else if (neverContacted) priority = 2;
+      else if (followUpScheduled) priority = 2;
+      else if (neverContacted) priority = 3;
 
       return {
         ...lead,
@@ -216,6 +218,12 @@ export default function ProtectedHomePage() {
         }
 
         if (a.computed_priority === 2) {
+          const aTime = a.computed_follow_up_at ? new Date(a.computed_follow_up_at).getTime() : Infinity;
+          const bTime = b.computed_follow_up_at ? new Date(b.computed_follow_up_at).getTime() : Infinity;
+          return aTime - bTime;
+        }
+
+        if (a.computed_priority === 3) {
           return a.shop_name.localeCompare(b.shop_name);
         }
 
@@ -535,7 +543,7 @@ export default function ProtectedHomePage() {
 
         <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <StatCard title="Calls Today" value="0" />
-          <StatCard title="Follow-ups Due" value={String(filteredQueue.filter((lead) => lead.computed_priority === 1).length)} />
+          <StatCard title="Follow-ups" value={String(filteredQueue.filter((lead) => Boolean(lead.computed_follow_up_at)).length)} />
           <StatCard title={queueTab === "existing" ? "Existing Customers" : "Prospects"} value={String(filteredQueue.length)} />
           <StatCard title="Broth Bite Orders" value={String(filteredQueue.filter((lead) => lead.last_outcome === "converted_to_customer").length)} />
         </section>

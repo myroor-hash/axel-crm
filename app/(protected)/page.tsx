@@ -225,14 +225,19 @@ export default function ProtectedHomePage() {
       });
   }, [baseQueue, contactStateMap]);
 
-  const filteredQueue = useMemo(() => {
-    const tabbedQueue = queue.filter((lead) =>
-      queueTab === "existing" ? lead.has_invoice_history : !lead.has_invoice_history
-    );
-    const term = searchTerm.trim().toLowerCase();
-    if (!term) return tabbedQueue;
+  const tabQueue = useMemo(
+    () =>
+      queue.filter((lead) =>
+        queueTab === "existing" ? lead.has_invoice_history : !lead.has_invoice_history
+      ),
+    [queue, queueTab]
+  );
 
-    return tabbedQueue.filter((lead) => {
+  const filteredQueue = useMemo(() => {
+    const term = searchTerm.trim().toLowerCase();
+    if (!term) return tabQueue;
+
+    return tabQueue.filter((lead) => {
       const haystack = [
         lead.shop_name,
         lead.contact_name,
@@ -246,31 +251,31 @@ export default function ProtectedHomePage() {
 
       return haystack.includes(term);
     });
-  }, [queue, queueTab, searchTerm]);
+  }, [tabQueue, searchTerm]);
 
   const visibleQueue = useMemo(() => filteredQueue.slice(0, 20), [filteredQueue]);
 
   const nextAvailableLeadId = useMemo(() => {
-    if (queue.length === 0) return null;
+    if (tabQueue.length === 0) return null;
 
-    const unlockedQueue = queue.filter((lead) => !lead.is_locked);
+    const unlockedQueue = tabQueue.filter((lead) => !lead.is_locked);
     if (unlockedQueue.length === 0) return selectedLeadId;
 
     if (!selectedLeadId) return unlockedQueue[0].id;
 
-    const currentIndex = queue.findIndex((lead) => lead.id === selectedLeadId);
+    const currentIndex = tabQueue.findIndex((lead) => lead.id === selectedLeadId);
     if (currentIndex === -1) return unlockedQueue[0].id;
 
-    for (let i = currentIndex + 1; i < queue.length; i += 1) {
-      if (!queue[i].is_locked) return queue[i].id;
+    for (let i = currentIndex + 1; i < tabQueue.length; i += 1) {
+      if (!tabQueue[i].is_locked) return tabQueue[i].id;
     }
 
     for (let i = 0; i < currentIndex; i += 1) {
-      if (!queue[i].is_locked) return queue[i].id;
+      if (!tabQueue[i].is_locked) return tabQueue[i].id;
     }
 
     return selectedLeadId;
-  }, [queue, selectedLeadId]);
+  }, [selectedLeadId, tabQueue]);
 
   function handleAdvanceLead() {
     if (!nextAvailableLeadId) return;
@@ -287,21 +292,21 @@ export default function ProtectedHomePage() {
   function handleSelectQueueTab(tab: QueueTab) {
     setQueueTab(tab);
 
-    const tabbedQueue = queue.filter((lead) =>
+    const nextTabQueue = queue.filter((lead) =>
       tab === "existing" ? lead.has_invoice_history : !lead.has_invoice_history
     );
 
-    if (tabbedQueue.length === 0) {
+    if (nextTabQueue.length === 0) {
       setSelectedLeadId(null);
       return;
     }
 
-    if (selectedLeadId && tabbedQueue.some((lead) => lead.id === selectedLeadId)) {
+    if (selectedLeadId && nextTabQueue.some((lead) => lead.id === selectedLeadId)) {
       return;
     }
 
-    const firstUnlocked = tabbedQueue.find((lead) => !lead.is_locked);
-    setSelectedLeadId(firstUnlocked?.id ?? tabbedQueue[0].id);
+    const firstUnlocked = nextTabQueue.find((lead) => !lead.is_locked);
+    setSelectedLeadId(firstUnlocked?.id ?? nextTabQueue[0].id);
   }
 
   const refreshQueue = useCallback(

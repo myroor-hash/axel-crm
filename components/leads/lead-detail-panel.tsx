@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { LeadDetail } from "@/features/leads/types";
+import type { InvoiceSummary, LeadDetail } from "@/features/leads/types";
 import type { LeadReadOnlyState } from "@/features/locks/types";
 
 type Activity = {
@@ -16,6 +16,7 @@ export function LeadDetailPanel({
   onAdvanceLead,
   onRecordActivity,
   activities,
+  invoices,
   lastAction,
   onOpenPreparedEmail,
 }: {
@@ -24,6 +25,7 @@ export function LeadDetailPanel({
   onAdvanceLead: () => void;
   onRecordActivity: (leadId: string, action: string, note?: string) => void;
   activities: Activity[];
+  invoices: InvoiceSummary[];
   lastAction: string | null;
   onOpenPreparedEmail: (leadId: string) => void;
 }) {
@@ -112,9 +114,72 @@ export function LeadDetailPanel({
         </div>
 
         <div>
+          <p className="text-xs uppercase text-slate-500">Customer Number</p>
+          <p>{activeLead.customer_number ?? activeLead.external_ref ?? "—"}</p>
+        </div>
+
+        <div>
           <p className="text-xs uppercase text-slate-500">Priority Note</p>
           <p>{activeLead.priority_note ?? "—"}</p>
         </div>
+      </div>
+
+      <div className="mt-6 border-t pt-6">
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-xs uppercase text-slate-500">Previous Invoices</p>
+          <span className="text-xs text-slate-500">
+            {invoices.length} recent invoice{invoices.length === 1 ? "" : "s"}
+          </span>
+        </div>
+
+        {invoices.length === 0 ? (
+          <p className="mt-3 text-sm text-slate-500">
+            No invoice history linked yet. Once invoices are imported, this area
+            will show previous order dates and values for this customer.
+          </p>
+        ) : (
+          <div className="mt-3 space-y-3">
+            {invoices.map((invoice) => (
+              <div
+                key={invoice.id}
+                className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3"
+              >
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-slate-900">
+                      {invoice.invoice_ref}
+                    </p>
+                    <p className="text-xs text-slate-500">
+                      {invoice.invoice_date
+                        ? new Date(invoice.invoice_date).toLocaleDateString("en-GB", {
+                            day: "2-digit",
+                            month: "short",
+                            year: "numeric",
+                          })
+                        : "Date unknown"}
+                    </p>
+                  </div>
+
+                  <div className="text-right">
+                    <p className="text-sm font-semibold text-slate-900">
+                      {invoice.total_amount ?? "—"}
+                    </p>
+                    <p className="text-xs text-slate-500">
+                      {[invoice.status, invoice.sent_status].filter(Boolean).join(" · ") ||
+                        "Status unknown"}
+                    </p>
+                  </div>
+                </div>
+
+                {invoice.description ? (
+                  <p className="mt-2 line-clamp-2 text-sm text-slate-600">
+                    {invoice.description}
+                  </p>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="mt-6 border-t pt-6">

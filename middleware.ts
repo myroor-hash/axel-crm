@@ -21,6 +21,14 @@ type GenericDatabase = {
 };
 
 export async function middleware(request: NextRequest) {
+  const authBypassEnabled =
+    process.env.NODE_ENV !== "production" &&
+    process.env.CRM_DEV_BYPASS_AUTH === "true";
+
+  if (authBypassEnabled) {
+    return NextResponse.next();
+  }
+
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 

@@ -10,6 +10,7 @@ import { EmailComposePanel } from "@/components/leads/email-compose-panel";
 import {
   fetchLeadActivities,
   fetchLeadById,
+  fetchLeadInvoices,
   fetchLeadQueue,
   recordCallOutcome,
   recordEmailSent,
@@ -18,7 +19,11 @@ import {
 import { getLeadReadOnlyState } from "@/features/locks/queries";
 import { fetchAttachmentOptions } from "@/features/attachments/queries";
 import { LogoutButton } from "@/components/auth/logout-button";
-import type { LeadDetail, LeadQueueItem } from "@/features/leads/types";
+import type {
+  InvoiceSummary,
+  LeadDetail,
+  LeadQueueItem,
+} from "@/features/leads/types";
 import type { LeadReadOnlyState } from "@/features/locks/types";
 import type { AttachmentOption } from "@/features/attachments/types";
 
@@ -52,6 +57,7 @@ export default function ProtectedHomePage() {
   const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null);
   const [selectedLead, setSelectedLead] = useState<LeadDetail | null>(null);
   const [readOnlyState, setReadOnlyState] = useState<LeadReadOnlyState | null>(null);
+  const [invoiceMap, setInvoiceMap] = useState<Record<string, InvoiceSummary[]>>({});
   const [activityMap, setActivityMap] = useState<Record<string, Activity[]>>({});
   const [lastActionMap, setLastActionMap] = useState<Record<string, string | null>>({});
   const [contactStateMap, setContactStateMap] = useState<Record<string, ContactState>>({});
@@ -123,6 +129,22 @@ export default function ProtectedHomePage() {
 
     loadActivities();
   }, [selectedLeadId]);
+
+  useEffect(() => {
+    async function loadInvoices() {
+      if (!selectedLeadId || !selectedLead) {
+        return;
+      }
+
+      const rows = await fetchLeadInvoices(selectedLead);
+      setInvoiceMap((prev) => ({
+        ...prev,
+        [selectedLeadId]: rows,
+      }));
+    }
+
+    loadInvoices();
+  }, [selectedLead, selectedLeadId]);
 
   const queue = useMemo(() => {
     const now = new Date();
@@ -400,6 +422,7 @@ export default function ProtectedHomePage() {
   }
 
   const selectedLeadActivities = selectedLeadId ? activityMap[selectedLeadId] ?? [] : [];
+  const selectedLeadInvoices = selectedLeadId ? invoiceMap[selectedLeadId] ?? [] : [];
   const selectedLeadLastAction = selectedLeadId ? lastActionMap[selectedLeadId] ?? null : null;
 
   return (
@@ -487,6 +510,7 @@ export default function ProtectedHomePage() {
               onAdvanceLead={handleAdvanceLead}
               onRecordActivity={handleRecordActivity}
               activities={selectedLeadActivities}
+              invoices={selectedLeadInvoices}
               lastAction={selectedLeadLastAction}
               onOpenPreparedEmail={handleOpenPreparedEmail}
             />

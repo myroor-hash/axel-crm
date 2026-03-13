@@ -3,6 +3,14 @@ import { LoginForm } from "@/components/auth/login-form";
 import { getCurrentUser } from "@/lib/auth/session";
 
 export default async function LoginPage() {
+  const authBypassEnabled =
+    process.env.NODE_ENV !== "production" &&
+    process.env.CRM_DEV_BYPASS_AUTH === "true";
+
+  if (authBypassEnabled) {
+    redirect("/");
+  }
+
   const user = await getCurrentUser();
 
   if (user) {
@@ -19,7 +27,7 @@ export default async function LoginPage() {
           Sign In
         </h1>
         <p className="mt-2 text-sm text-slate-600">
-          Enter Dan&apos;s email address and we&apos;ll send a secure sign-in link.
+          Use your approved email address and password to access the CRM.
         </p>
 
         <div className="mt-6">

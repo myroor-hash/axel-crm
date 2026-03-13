@@ -1,4 +1,5 @@
 export interface ImportedLeadRow {
+  customer_number?: string;
   external_ref?: string;
   shop_name: string;
   business_name?: string;

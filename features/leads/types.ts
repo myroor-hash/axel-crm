@@ -25,6 +25,7 @@ export interface LeadQueueItem {
 
 export interface LeadDetail {
   id: string;
+  customer_number?: string | null;
   external_ref?: string;
   shop_name: string;
   contact_first_name: string | null;
@@ -43,4 +44,15 @@ export interface LeadDetail {
   last_contacted_at: string | null;
   next_follow_up_at: string | null;
   priority_note: string | null;
+}
+
+export interface InvoiceSummary {
+  id: string;
+  invoice_ref: string;
+  invoice_date: string | null;
+  customer_name: string | null;
+  total_amount: string | null;
+  status: string | null;
+  sent_status: string | null;
+  description: string | null;
 }

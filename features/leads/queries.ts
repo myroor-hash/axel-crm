@@ -1,5 +1,9 @@
 import { createBrowserSupabaseClient } from "@/lib/db/client";
-import type { LeadDetail, LeadQueueItem } from "@/features/leads/types";
+import type {
+  InvoiceSummary,
+  LeadDetail,
+  LeadQueueItem,
+} from "@/features/leads/types";
 import type { ImportedLeadRow } from "@/features/import/types";
 
 export type DbActivity = {
@@ -119,6 +123,7 @@ function mapLeadDetail(row: LeadRow): LeadDetail {
 
   return {
     id: row.id,
+    customer_number: row.external_ref ?? null,
     external_ref: row.external_ref ?? undefined,
     shop_name: row.shop_name,
     contact_first_name: row.contact_first_name ?? fallbackNames.firstName,
@@ -138,6 +143,12 @@ function mapLeadDetail(row: LeadRow): LeadDetail {
     next_follow_up_at: row.next_follow_up_at,
     priority_note: row.priority_note,
   };
+}
+
+function normalizeBusinessName(value: string | null | undefined) {
+  return String(value ?? "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
 }
 
 export async function fetchLeadQueue(): Promise<LeadQueueItem[]> {
@@ -222,6 +233,62 @@ export async function fetchLeadById(leadId: string): Promise<LeadDetail | null> 
   }
 
   return mapLeadDetail(data as LeadRow);
+}
+
+export async function fetchLeadInvoices(
+  lead: Pick<LeadDetail, "shop_name" | "customer_number" | "external_ref">
+): Promise<InvoiceSummary[]> {
+  const supabase = createBrowserSupabaseClient();
+  const customerRef = lead.customer_number ?? lead.external_ref ?? null;
+
+  const { data, error } = await supabase
+    .from("invoices")
+    .select(
+      "id, invoice_ref, invoice_date, customer_name, customer_ref, total_amount, status, sent_status, description"
+    )
+    .order("invoice_date", { ascending: false })
+    .limit(25);
+
+  if (error) {
+    if (error.code === "42P01") {
+      return [];
+    }
+
+    throw new Error(`Failed to load invoices: ${error.message}`);
+  }
+
+  const normalizedTargetName = normalizeBusinessName(lead.shop_name);
+
+  return (data ?? [])
+    .filter((row) => {
+      const rowCustomerRef =
+        typeof row.customer_ref === "string" ? row.customer_ref : null;
+      const rowCustomerName =
+        typeof row.customer_name === "string" ? row.customer_name : null;
+
+      if (customerRef && rowCustomerRef === customerRef) {
+        return true;
+      }
+
+      return normalizeBusinessName(rowCustomerName) === normalizedTargetName;
+    })
+    .slice(0, 10)
+    .map((row) => ({
+      id: String(row.id),
+      invoice_ref:
+        typeof row.invoice_ref === "string" ? row.invoice_ref : "Unknown invoice",
+      invoice_date:
+        typeof row.invoice_date === "string" ? row.invoice_date : null,
+      customer_name:
+        typeof row.customer_name === "string" ? row.customer_name : null,
+      total_amount:
+        typeof row.total_amount === "string" ? row.total_amount : null,
+      status: typeof row.status === "string" ? row.status : null,
+      sent_status:
+        typeof row.sent_status === "string" ? row.sent_status : null,
+      description:
+        typeof row.description === "string" ? row.description : null,
+    }));
 }
 
 export async function fetchLeadActivities(leadId: string): Promise<DbActivity[]> {

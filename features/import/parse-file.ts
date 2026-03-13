@@ -73,6 +73,7 @@ function normalizeRow(row: Record<string, unknown>): ImportedLeadRow {
     "";
 
   return {
+    customer_number: asCleanString(row["Ref"]),
     external_ref: asCleanString(row["Ref"]),
     shop_name: shopName,
     business_name: asCleanString(row["Business Name"]),

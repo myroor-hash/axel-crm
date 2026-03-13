@@ -1,4 +1,5 @@
 import { LeadImportWorkspace } from "@/components/import/lead-import-workspace";
+import { InvoiceImportWorkspace } from "@/components/import/invoice-import-workspace";
 import { PageHeader } from "@/components/layout/page-header";
 import { LogoutButton } from "@/components/auth/logout-button";
 import type { LeadSource } from "@/features/lead-sources/types";
@@ -32,6 +33,7 @@ export default async function ImportPage() {
         />
 
         <LeadImportWorkspace leadSources={normalizedLeadSources} />
+        <InvoiceImportWorkspace />
 
       </div>
     </main>

@@ -53,6 +53,7 @@ function mapDbActivities(rows: DbActivity[]): Activity[] {
 }
 
 export default function ProtectedHomePage() {
+  const [, setQueueClock] = useState(() => Date.now());
   const [baseQueue, setBaseQueue] = useState<LeadQueueItem[]>([]);
   const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null);
   const [selectedLead, setSelectedLead] = useState<LeadDetail | null>(null);
@@ -87,6 +88,14 @@ export default function ProtectedHomePage() {
 
     loadQueue();
     loadAttachments();
+  }, []);
+
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      setQueueClock(Date.now());
+    }, 30000);
+
+    return () => window.clearInterval(interval);
   }, []);
 
   useEffect(() => {
@@ -179,6 +188,7 @@ export default function ProtectedHomePage() {
         ...lead,
         last_contacted_at: lastContactAt,
         computed_follow_up_at: followUpAt,
+        computed_follow_up_due: followUpDue,
         computed_status_badge: statusBadge,
         computed_priority: priority,
       };

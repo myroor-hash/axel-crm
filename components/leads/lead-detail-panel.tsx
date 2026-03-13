@@ -307,12 +307,12 @@ export function LeadDetailPanel({
           {activities.map((a, i) => (
             <div
               key={i}
-              className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm"
+              className="rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-900"
             >
-              <div className="font-medium">
+              <div className="font-medium text-slate-900">
                 {a.time} — {a.action}
               </div>
-              {a.note ? <div className="mt-1 text-slate-600">{a.note}</div> : null}
+              {a.note ? <div className="mt-1 text-slate-900">{a.note}</div> : null}
             </div>
           ))}
         </div>

@@ -64,7 +64,7 @@ function escapeCsvCell(value: string | null | undefined) {
 function preserveCsvText(value: string | null | undefined) {
   const text = String(value ?? "");
   if (!text) return "";
-  return `="${text.replace(/"/g, '""')}"`;
+  return `\t${text}`;
 }
 
 export default function ProtectedHomePage() {

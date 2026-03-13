@@ -164,19 +164,19 @@ export default function ProtectedHomePage() {
       const followUpAt =
         contactState?.followUpAt ?? lead.next_follow_up_at ?? null;
 
-      let statusBadge = "○ NEW";
-      if (contactState?.statusLabel) {
-        statusBadge = contactState.statusLabel;
-      } else if (lead.status === "customer") {
-        statusBadge = "◆ CUSTOMER";
-      } else if (followUpAt) {
-        statusBadge = "● FOLLOW UP";
-      } else if (lastContactAt) {
-        statusBadge = "◐ CALLED";
-      }
-
       const followUpDue =
         Boolean(followUpAt) && new Date(followUpAt as string).getTime() <= now.getTime();
+
+      let statusBadge = "Not Contacted";
+      if (contactState?.statusLabel) {
+        statusBadge = contactState.statusLabel;
+      } else if (followUpDue) {
+        statusBadge = "Follow Up Due";
+      } else if (followUpAt) {
+        statusBadge = "Follow Up Scheduled";
+      } else if (lastContactAt) {
+        statusBadge = "Contacted";
+      }
 
       const neverContacted = !lastContactAt && lead.status !== "customer";
 
@@ -332,11 +332,11 @@ export default function ProtectedHomePage() {
     setContactStateMap((prev) => {
       const existing = prev[leadId] ?? {};
       const statusLabel =
-        result.status === "information_sent" || Boolean(result.nextFollowUpAt)
-          ? "● FOLLOW UP"
-          : result.status === "customer"
-            ? "◆ CUSTOMER"
-            : "◐ CALLED";
+        Boolean(result.nextFollowUpAt)
+          ? new Date(result.nextFollowUpAt as string).getTime() <= Date.now()
+            ? "Follow Up Due"
+            : "Follow Up Scheduled"
+          : "Contacted";
       const followUpAt = result.nextFollowUpAt ?? undefined;
 
       return {
@@ -399,7 +399,7 @@ export default function ProtectedHomePage() {
       [selectedLeadId]: {
         ...(prev[selectedLeadId] ?? {}),
         followUpAt: result.nextFollowUpAt ?? undefined,
-        statusLabel: "● FOLLOW UP",
+        statusLabel: "Follow Up Scheduled",
       },
     }));
 

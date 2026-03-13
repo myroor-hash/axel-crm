@@ -285,13 +285,19 @@ export default function ProtectedHomePage() {
     [selectedLeadId]
   );
 
-  async function handleRecordActivity(leadId: string, action: string, note?: string) {
+  async function handleRecordActivity(
+    leadId: string,
+    action: string,
+    note?: string,
+    followUpAt?: string
+  ) {
     const now = new Date();
     const result = await recordCallOutcome({
       leadId,
       actionLabel: action,
       noteText: note,
       previousStatus: selectedLead?.status ?? null,
+      manualFollowUpAt: followUpAt ?? null,
     });
 
     const newActivity: Activity = {

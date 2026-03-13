@@ -23,13 +23,19 @@ export function LeadDetailPanel({
   lead: LeadDetail | null;
   readOnlyState: LeadReadOnlyState | null;
   onAdvanceLead: () => void;
-  onRecordActivity: (leadId: string, action: string, note?: string) => void;
+  onRecordActivity: (
+    leadId: string,
+    action: string,
+    note?: string,
+    followUpAt?: string
+  ) => void;
   activities: Activity[];
   invoices: InvoiceSummary[];
   lastAction: string | null;
   onOpenPreparedEmail: (leadId: string) => void;
 }) {
   const [note, setNote] = useState("");
+  const [manualFollowUpAt, setManualFollowUpAt] = useState("");
 
   if (!lead) {
     return (
@@ -50,7 +56,16 @@ export function LeadDetailPanel({
   function handleOutcome(action: string) {
     if (isReadOnly) return;
 
-    onRecordActivity(activeLead.id, action, note || undefined);
+    const scheduledFollowUpAt = manualFollowUpAt
+      ? new Date(manualFollowUpAt).toISOString()
+      : undefined;
+
+    onRecordActivity(
+      activeLead.id,
+      action,
+      note || undefined,
+      scheduledFollowUpAt
+    );
 
     if (action === "Send Info") {
       onOpenPreparedEmail(activeLead.id);
@@ -58,6 +73,7 @@ export function LeadDetailPanel({
     }
 
     setNote("");
+    setManualFollowUpAt("");
 
     setTimeout(() => {
       onAdvanceLead();
@@ -193,6 +209,34 @@ export function LeadDetailPanel({
           rows={3}
           placeholder="Optional note..."
         />
+
+        <div className="mt-4">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-xs uppercase text-slate-500">
+              Manual Follow-Up
+            </p>
+            {manualFollowUpAt ? (
+              <button
+                type="button"
+                disabled={isReadOnly}
+                onClick={() => setManualFollowUpAt("")}
+                className="text-xs font-medium text-slate-500 transition hover:text-slate-900 disabled:opacity-50"
+              >
+                Clear
+              </button>
+            ) : null}
+          </div>
+          <input
+            type="datetime-local"
+            value={manualFollowUpAt}
+            onChange={(e) => setManualFollowUpAt(e.target.value)}
+            disabled={isReadOnly}
+            className="mt-2 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-900 disabled:opacity-50"
+          />
+          <p className="mt-2 text-xs text-slate-500">
+            Use this when a buyer asks for a callback at a specific date and time.
+          </p>
+        </div>
       </div>
 
       <div className="mt-6 border-t pt-6">

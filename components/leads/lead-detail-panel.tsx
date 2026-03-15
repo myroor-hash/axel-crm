@@ -1,7 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import type { InvoiceSummary, LeadDetail } from "@/features/leads/types";
+import type {
+  InvoiceSummary,
+  LeadDetail,
+  LeadEmailSummary,
+} from "@/features/leads/types";
 import type { LeadReadOnlyState } from "@/features/locks/types";
 
 type Activity = {
@@ -17,6 +21,7 @@ export function LeadDetailPanel({
   onRecordActivity,
   activities,
   invoices,
+  emails,
   lastAction,
   onOpenPreparedEmail,
 }: {
@@ -31,6 +36,7 @@ export function LeadDetailPanel({
   ) => void;
   activities: Activity[];
   invoices: InvoiceSummary[];
+  emails: LeadEmailSummary[];
   lastAction: string | null;
   onOpenPreparedEmail: (leadId: string) => void;
 }) {
@@ -92,6 +98,17 @@ export function LeadDetailPanel({
     }
 
     return "rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-100 active:scale-[0.98] disabled:opacity-50";
+  }
+
+  function formatEventTime(value: string | null) {
+    if (!value) return null;
+
+    return new Date(value).toLocaleString("en-GB", {
+      day: "2-digit",
+      month: "short",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
   }
 
   return (
@@ -194,6 +211,65 @@ export function LeadDetailPanel({
                 {invoice.description ? (
                   <p className="mt-2 line-clamp-2 text-sm text-slate-600">
                     {invoice.description}
+                  </p>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="mt-6 border-t pt-6">
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-xs uppercase text-slate-500">Email History</p>
+          <span className="text-xs text-slate-500">
+            {emails.length} recent email{emails.length === 1 ? "" : "s"}
+          </span>
+        </div>
+
+        {emails.length === 0 ? (
+          <p className="mt-3 text-sm text-slate-500">
+            No emails sent yet. Sent emails will appear here with delivery and
+            engagement status.
+          </p>
+        ) : (
+          <div className="mt-3 space-y-3">
+            {emails.map((email) => (
+              <div
+                key={email.id}
+                className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3"
+              >
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-slate-900">
+                      {email.subject}
+                    </p>
+                    <p className="text-xs text-slate-500">
+                      To {email.recipient_email}
+                    </p>
+                  </div>
+
+                  <div className="text-right">
+                    <p className="text-sm font-semibold capitalize text-slate-900">
+                      {email.status}
+                    </p>
+                    <p className="text-xs text-slate-500">
+                      Sent {formatEventTime(email.sent_at) ?? "unknown"}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-600">
+                  <span>
+                    Delivered: {formatEventTime(email.delivered_at) ?? "—"}
+                  </span>
+                  <span>Opened: {formatEventTime(email.opened_at) ?? "—"}</span>
+                  <span>Clicked: {formatEventTime(email.clicked_at) ?? "—"}</span>
+                </div>
+
+                {email.attachment_name ? (
+                  <p className="mt-2 text-xs text-slate-600">
+                    Attachment: {email.attachment_name}
                   </p>
                 ) : null}
               </div>

@@ -10,10 +10,12 @@ import { EmailComposePanel } from "@/components/leads/email-compose-panel";
 import {
   fetchLeadActivities,
   fetchLeadById,
+  fetchLeadEmails,
   fetchLeadInvoices,
   fetchLeadQueue,
   recordCallOutcome,
   recordEmailSent,
+  sendLeadEmail,
   type DbActivity,
 } from "@/features/leads/queries";
 import { getLeadReadOnlyState } from "@/features/locks/queries";
@@ -22,6 +24,7 @@ import { LogoutButton } from "@/components/auth/logout-button";
 import type {
   InvoiceSummary,
   LeadDetail,
+  LeadEmailSummary,
   LeadQueueItem,
 } from "@/features/leads/types";
 import type { LeadReadOnlyState } from "@/features/locks/types";
@@ -74,6 +77,7 @@ export default function ProtectedHomePage() {
   const [selectedLead, setSelectedLead] = useState<LeadDetail | null>(null);
   const [readOnlyState, setReadOnlyState] = useState<LeadReadOnlyState | null>(null);
   const [invoiceMap, setInvoiceMap] = useState<Record<string, InvoiceSummary[]>>({});
+  const [emailMap, setEmailMap] = useState<Record<string, LeadEmailSummary[]>>({});
   const [activityMap, setActivityMap] = useState<Record<string, Activity[]>>({});
   const [lastActionMap, setLastActionMap] = useState<Record<string, string | null>>({});
   const [contactStateMap, setContactStateMap] = useState<Record<string, ContactState>>({});
@@ -171,6 +175,22 @@ export default function ProtectedHomePage() {
     loadInvoices();
   }, [selectedLead, selectedLeadId]);
 
+  useEffect(() => {
+    async function loadEmails() {
+      if (!selectedLeadId) {
+        return;
+      }
+
+      const rows = await fetchLeadEmails(selectedLeadId);
+      setEmailMap((prev) => ({
+        ...prev,
+        [selectedLeadId]: rows,
+      }));
+    }
+
+    loadEmails();
+  }, [selectedLeadId]);
+
   const queue = useMemo(() => {
     const now = new Date();
 
@@ -188,9 +208,15 @@ export default function ProtectedHomePage() {
 
       const followUpDue =
         Boolean(followUpAt) && new Date(followUpAt as string).getTime() <= now.getTime();
+      const clickedRecently =
+        Boolean(lead.recent_email_clicked_at) &&
+        now.getTime() - new Date(lead.recent_email_clicked_at as string).getTime() <=
+          24 * 60 * 60 * 1000;
 
       let statusBadge = "Not Contacted";
-      if (contactState?.statusLabel) {
+      if (clickedRecently) {
+        statusBadge = "Clicked Info";
+      } else if (contactState?.statusLabel) {
         statusBadge = contactState.statusLabel;
       } else if (followUpDue) {
         statusBadge = "Follow Up Due";
@@ -204,7 +230,8 @@ export default function ProtectedHomePage() {
       const followUpScheduled = Boolean(followUpAt) && !followUpDue;
 
       let priority = 4;
-      if (followUpDue) priority = 1;
+      if (clickedRecently) priority = 0;
+      else if (followUpDue) priority = 1;
       else if (followUpScheduled) priority = 2;
       else if (neverContacted) priority = 3;
 
@@ -223,6 +250,16 @@ export default function ProtectedHomePage() {
       .sort((a, b) => {
         if (a.computed_priority !== b.computed_priority) {
           return a.computed_priority - b.computed_priority;
+        }
+
+        if (a.computed_priority === 0) {
+          const aTime = a.recent_email_clicked_at
+            ? new Date(a.recent_email_clicked_at).getTime()
+            : 0;
+          const bTime = b.recent_email_clicked_at
+            ? new Date(b.recent_email_clicked_at).getTime()
+            : 0;
+          return bTime - aTime;
         }
 
         if (a.computed_priority === 1) {
@@ -463,9 +500,21 @@ export default function ProtectedHomePage() {
     attachmentId: string;
   }) {
     if (!selectedLeadId) return;
+    if (!selectedLead?.email) {
+      throw new Error("This lead does not have an email address yet.");
+    }
 
     const attachment = attachments.find((file) => file.id === payload.attachmentId);
     const action = `Email Sent${attachment ? ` — ${attachment.fileName}` : ""}`;
+
+    await sendLeadEmail({
+      leadId: selectedLeadId,
+      to: selectedLead.email,
+      subject: payload.subject,
+      body: payload.body,
+      attachmentId: payload.attachmentId,
+      attachmentName: attachment?.fileName ?? "",
+    });
 
     const result = await recordEmailSent({
       leadId: selectedLeadId,
@@ -505,6 +554,12 @@ export default function ProtectedHomePage() {
 
     await refreshQueue(selectedLeadId);
 
+    const updatedEmails = await fetchLeadEmails(selectedLeadId);
+    setEmailMap((prev) => ({
+      ...prev,
+      [selectedLeadId]: updatedEmails,
+    }));
+
     setPanelMode("lead");
 
     setTimeout(() => {
@@ -539,6 +594,7 @@ export default function ProtectedHomePage() {
 
   const selectedLeadActivities = selectedLeadId ? activityMap[selectedLeadId] ?? [] : [];
   const selectedLeadInvoices = selectedLeadId ? invoiceMap[selectedLeadId] ?? [] : [];
+  const selectedLeadEmails = selectedLeadId ? emailMap[selectedLeadId] ?? [] : [];
   const selectedLeadLastAction = selectedLeadId ? lastActionMap[selectedLeadId] ?? null : null;
 
   return (
@@ -659,6 +715,7 @@ export default function ProtectedHomePage() {
               onRecordActivity={handleRecordActivity}
               activities={selectedLeadActivities}
               invoices={selectedLeadInvoices}
+              emails={selectedLeadEmails}
               lastAction={selectedLeadLastAction}
               onOpenPreparedEmail={handleOpenPreparedEmail}
             />

@@ -2,6 +2,7 @@ import { createBrowserSupabaseClient } from "@/lib/db/client";
 import type {
   InvoiceSummary,
   LeadDetail,
+  LeadEmailSummary,
   LeadQueueItem,
 } from "@/features/leads/types";
 import type { ImportedLeadRow } from "@/features/import/types";
@@ -80,6 +81,11 @@ type UserRow = {
 type QueueInvoiceRow = {
   customer_name: string | null;
   customer_ref: string | null;
+};
+
+type QueueEmailRow = {
+  lead_id: string;
+  clicked_at: string | null;
 };
 
 function normalizePhone(value: string | null | undefined): string {
@@ -195,6 +201,7 @@ export async function fetchLeadQueue(): Promise<LeadQueueItem[]> {
     { data: leads, error: leadsError },
     { data: locks, error: locksError },
     { data: invoices, error: invoicesError },
+    { data: leadEmails, error: leadEmailsError },
   ] =
     await Promise.all([
       supabase
@@ -210,6 +217,11 @@ export async function fetchLeadQueue(): Promise<LeadQueueItem[]> {
         .is("released_at", null)
         .gt("expires_at", now),
       supabase.from("invoices").select("customer_name, customer_ref"),
+      supabase
+        .from("lead_emails")
+        .select("lead_id, clicked_at")
+        .not("clicked_at", "is", null)
+        .order("clicked_at", { ascending: false }),
     ]);
 
   if (leadsError) {
@@ -222,6 +234,10 @@ export async function fetchLeadQueue(): Promise<LeadQueueItem[]> {
 
   if (invoicesError && invoicesError.code !== "42P01") {
     throw new Error(`Failed to load invoice summary: ${invoicesError.message}`);
+  }
+
+  if (leadEmailsError && leadEmailsError.code !== "42P01") {
+    throw new Error(`Failed to load email engagement summary: ${leadEmailsError.message}`);
   }
 
   const queueLeads = (leads ?? []) as QueueLeadRow[];
@@ -267,6 +283,12 @@ export async function fetchLeadQueue(): Promise<LeadQueueItem[]> {
   }
 
   const invoiceRows = (invoices ?? []) as QueueInvoiceRow[];
+  const latestClickMap = new Map<string, string>();
+  for (const email of (leadEmails ?? []) as QueueEmailRow[]) {
+    if (email.clicked_at && !latestClickMap.has(email.lead_id)) {
+      latestClickMap.set(email.lead_id, email.clicked_at);
+    }
+  }
 
   return queueLeads.map((lead) => ({
     id: lead.id,
@@ -298,6 +320,7 @@ export async function fetchLeadQueue(): Promise<LeadQueueItem[]> {
     last_activity_at: latestActivityMap.get(lead.id)?.created_at ?? null,
     last_activity_label: latestActivityMap.get(lead.id)?.action_label ?? null,
     next_follow_up_at: lead.next_follow_up_at ?? null,
+    recent_email_clicked_at: latestClickMap.get(lead.id) ?? null,
     is_locked: lockMap.has(lead.id),
     locked_by_name: lockMap.get(lead.id) ?? null,
   }));
@@ -374,6 +397,69 @@ export async function fetchLeadInvoices(
       description:
         typeof row.description === "string" ? row.description : null,
     }));
+}
+
+export async function fetchLeadEmails(leadId: string): Promise<LeadEmailSummary[]> {
+  const supabase = createBrowserSupabaseClient();
+
+  const { data, error } = await supabase
+    .from("lead_emails")
+    .select(
+      "id, subject, recipient_email, sender_email, attachment_name, sent_at, delivered_at, opened_at, clicked_at, status"
+    )
+    .eq("lead_id", leadId)
+    .order("sent_at", { ascending: false })
+    .limit(20);
+
+  if (error) {
+    if (error.code === "42P01") {
+      return [];
+    }
+
+    throw new Error(`Failed to load lead emails: ${error.message}`);
+  }
+
+  return (data ?? []).map((row) => ({
+    id: String(row.id),
+    subject: typeof row.subject === "string" ? row.subject : "Untitled email",
+    recipient_email:
+      typeof row.recipient_email === "string" ? row.recipient_email : "Unknown recipient",
+    sender_email:
+      typeof row.sender_email === "string" ? row.sender_email : "Unknown sender",
+    attachment_name:
+      typeof row.attachment_name === "string" ? row.attachment_name : null,
+    sent_at: typeof row.sent_at === "string" ? row.sent_at : new Date().toISOString(),
+    delivered_at:
+      typeof row.delivered_at === "string" ? row.delivered_at : null,
+    opened_at: typeof row.opened_at === "string" ? row.opened_at : null,
+    clicked_at: typeof row.clicked_at === "string" ? row.clicked_at : null,
+    status: typeof row.status === "string" ? row.status : "sent",
+  }));
+}
+
+export async function sendLeadEmail(args: {
+  leadId: string;
+  to: string;
+  subject: string;
+  body: string;
+  attachmentId: string;
+  attachmentName: string;
+}): Promise<void> {
+  const response = await fetch("/api/email/send", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(args),
+  });
+
+  const payload = (await response.json().catch(() => null)) as
+    | { error?: string }
+    | null;
+
+  if (!response.ok) {
+    throw new Error(payload?.error ?? "Failed to send email.");
+  }
 }
 
 export async function fetchLeadActivities(leadId: string): Promise<DbActivity[]> {

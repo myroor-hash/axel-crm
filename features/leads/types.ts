@@ -23,6 +23,7 @@ export interface LeadQueueItem {
   last_activity_at?: string | null;
   last_activity_label?: string | null;
   next_follow_up_at?: string | null;
+  recent_email_clicked_at?: string | null;
   is_locked: boolean;
   locked_by_name: string | null;
 }
@@ -59,4 +60,17 @@ export interface InvoiceSummary {
   status: string | null;
   sent_status: string | null;
   description: string | null;
+}
+
+export interface LeadEmailSummary {
+  id: string;
+  subject: string;
+  recipient_email: string;
+  sender_email: string;
+  attachment_name: string | null;
+  sent_at: string;
+  delivered_at: string | null;
+  opened_at: string | null;
+  clicked_at: string | null;
+  status: string;
 }

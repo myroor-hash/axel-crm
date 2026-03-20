@@ -40,15 +40,26 @@ Axel Elixir`
   const [attachmentId, setAttachmentId] = useState(
     attachments[0]?.id ?? ""
   );
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isSending, setIsSending] = useState(false);
 
-  function handleSend() {
-    if (!attachmentId) return;
+  async function handleSend() {
+    setErrorMessage(null);
+    setIsSending(true);
 
-    onSend({
-      subject,
-      body,
-      attachmentId,
-    });
+    try {
+      await onSend({
+        subject,
+        body,
+        attachmentId,
+      });
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : "Unable to send email."
+      );
+    } finally {
+      setIsSending(false);
+    }
   }
 
   return (
@@ -90,6 +101,7 @@ Axel Elixir`
             onChange={(e) => setAttachmentId(e.target.value)}
             className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900"
           >
+            <option value="">No attachment</option>
             {attachments.map((file) => (
               <option key={file.id} value={file.id}>
                 {file.fileName}
@@ -98,13 +110,18 @@ Axel Elixir`
           </select>
         </div>
 
+        {errorMessage ? (
+          <p className="text-sm font-medium text-red-700">{errorMessage}</p>
+        ) : null}
+
         <div className="flex gap-3 pt-2">
           <button
             type="button"
             onClick={handleSend}
+            disabled={isSending}
             className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800"
           >
-            Send Email
+            {isSending ? "Sending..." : "Send Email"}
           </button>
 
           <button

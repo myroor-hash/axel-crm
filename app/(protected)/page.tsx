@@ -43,7 +43,7 @@ type ContactState = {
 };
 
 type PanelMode = "lead" | "email";
-type QueueTab = "existing" | "prospects";
+type QueueTab = "existing" | "chasing" | "new_leads";
 
 function mapDbActivities(rows: DbActivity[]): Activity[] {
   return rows.map((row) => ({
@@ -68,6 +68,23 @@ function preserveCsvText(value: string | null | undefined) {
   const text = String(value ?? "");
   if (!text) return "";
   return `\t${text}`;
+}
+
+function matchesQueueTab(
+  lead: LeadQueueItem & {
+    computed_has_contact_history?: boolean;
+  },
+  tab: QueueTab
+) {
+  if (lead.has_invoice_history) {
+    return tab === "existing";
+  }
+
+  if (lead.computed_has_contact_history) {
+    return tab === "chasing";
+  }
+
+  return tab === "new_leads";
 }
 
 export default function ProtectedHomePage() {
@@ -237,6 +254,7 @@ export default function ProtectedHomePage() {
 
       return {
         ...lead,
+        computed_has_contact_history: hasContactHistory,
         last_contacted_at: lastContactAt,
         computed_follow_up_at: followUpAt,
         computed_follow_up_due: followUpDue,
@@ -285,10 +303,7 @@ export default function ProtectedHomePage() {
   }, [baseQueue, contactStateMap]);
 
   const tabQueue = useMemo(
-    () =>
-      queue.filter((lead) =>
-        queueTab === "existing" ? lead.has_invoice_history : !lead.has_invoice_history
-      ),
+    () => queue.filter((lead) => matchesQueueTab(lead, queueTab)),
     [queue, queueTab]
   );
 
@@ -351,9 +366,7 @@ export default function ProtectedHomePage() {
   function handleSelectQueueTab(tab: QueueTab) {
     setQueueTab(tab);
 
-    const nextTabQueue = queue.filter((lead) =>
-      tab === "existing" ? lead.has_invoice_history : !lead.has_invoice_history
-    );
+    const nextTabQueue = queue.filter((lead) => matchesQueueTab(lead, tab));
 
     if (nextTabQueue.length === 0) {
       setSelectedLeadId(null);
@@ -405,7 +418,13 @@ export default function ProtectedHomePage() {
     const link = document.createElement("a");
     const dateStamp = new Date().toISOString().slice(0, 10);
     link.href = url;
-    link.download = `${queueTab}-queue-${dateStamp}.csv`;
+    const filePrefix =
+      queueTab === "existing"
+        ? "existing-customers"
+        : queueTab === "chasing"
+          ? "chasing"
+          : "new-leads";
+    link.download = `${filePrefix}-queue-${dateStamp}.csv`;
     link.click();
     URL.revokeObjectURL(url);
   }
@@ -610,7 +629,13 @@ export default function ProtectedHomePage() {
                 onClick={handleExportCurrentTab}
                 className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-900 transition hover:bg-slate-50 active:scale-[0.98]"
               >
-                Export {queueTab === "existing" ? "Existing" : "Prospects"} CSV
+                Export{" "}
+                {queueTab === "existing"
+                  ? "Existing"
+                  : queueTab === "chasing"
+                    ? "Chasing"
+                    : "New Leads"}{" "}
+                CSV
               </button>
               <NextLeadButton onClick={handleCallNextLead} />
               <LogoutButton />
@@ -663,7 +688,16 @@ export default function ProtectedHomePage() {
         <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <StatCard title="Calls Today" value="0" />
           <StatCard title="Follow-ups" value={String(queue.filter((lead) => Boolean(lead.computed_follow_up_at)).length)} />
-          <StatCard title={queueTab === "existing" ? "Existing Customers" : "Prospects"} value={String(filteredQueue.length)} />
+          <StatCard
+            title={
+              queueTab === "existing"
+                ? "Existing Customers"
+                : queueTab === "chasing"
+                  ? "Chasing"
+                  : "New Leads"
+            }
+            value={String(filteredQueue.length)}
+          />
           <StatCard title="Broth Bite Orders" value={String(queue.filter((lead) => lead.last_outcome === "converted_to_customer").length)} />
         </section>
 
@@ -681,14 +715,25 @@ export default function ProtectedHomePage() {
           </button>
           <button
             type="button"
-            onClick={() => handleSelectQueueTab("prospects")}
+            onClick={() => handleSelectQueueTab("chasing")}
             className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
-              queueTab === "prospects"
+              queueTab === "chasing"
                 ? "bg-slate-900 text-white"
                 : "border border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
             }`}
           >
-            Prospects ({queue.filter((lead) => !lead.has_invoice_history).length})
+            Chasing ({queue.filter((lead) => !lead.has_invoice_history && lead.computed_has_contact_history).length})
+          </button>
+          <button
+            type="button"
+            onClick={() => handleSelectQueueTab("new_leads")}
+            className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
+              queueTab === "new_leads"
+                ? "bg-slate-900 text-white"
+                : "border border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+            }`}
+          >
+            New Leads ({queue.filter((lead) => !lead.has_invoice_history && !lead.computed_has_contact_history).length})
           </button>
         </div>
 

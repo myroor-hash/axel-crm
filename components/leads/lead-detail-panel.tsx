@@ -113,12 +113,12 @@ export function LeadDetailPanel({
 
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-      <div className="border-b border-slate-100 pb-4">
-        <h2 className="text-xl font-semibold text-slate-900">
+      <div className="-mx-6 -mt-6 rounded-t-2xl bg-slate-950 px-6 py-5 text-white">
+        <h2 className="text-xl font-semibold text-white">
           {activeLead.shop_name}
         </h2>
 
-        <p className="mt-1 text-sm text-slate-600">
+        <p className="mt-1 text-sm text-slate-200">
           {isReadOnly
             ? `Read-only. Locked by ${readOnlyState?.lockedByName ?? "another user"}`
             : "Editable lead"}

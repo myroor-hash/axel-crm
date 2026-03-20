@@ -140,7 +140,7 @@ export function EmailComposePanel({
             type="button"
             onClick={handleSend}
             disabled={isSending}
-            className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-800 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-900 transition hover:bg-slate-50 active:scale-[0.98] disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500"
           >
             {isSending ? "Sending..." : "Send Email"}
           </button>

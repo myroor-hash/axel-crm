@@ -64,7 +64,8 @@ export async function middleware(request: NextRequest) {
 
   const isLoginRoute = request.nextUrl.pathname === "/login";
   const isAuthCallback = request.nextUrl.pathname.startsWith("/auth/callback");
-  const isProtectedRoute = !isLoginRoute && !isAuthCallback;
+  const isEmailApiRoute = request.nextUrl.pathname.startsWith("/api/email/");
+  const isProtectedRoute = !isLoginRoute && !isAuthCallback && !isEmailApiRoute;
 
   if (!user && isProtectedRoute) {
     const loginUrl = new URL("/login", request.url);

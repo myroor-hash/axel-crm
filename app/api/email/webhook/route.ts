@@ -37,21 +37,8 @@ function mapWebhookTypeToUpdate(type: string, eventTime: string) {
 }
 
 export async function POST(request: Request) {
-  const webhookSecret = process.env.RESEND_WEBHOOK_SECRET;
-
-  if (!webhookSecret) {
-    return NextResponse.json(
-      { error: "Missing webhook signing secret." },
-      { status: 500 }
-    );
-  }
-
-  const authHeader = request.headers.get("authorization");
-  if (authHeader !== `Bearer ${webhookSecret}`) {
-    return NextResponse.json({ error: "Unauthorized webhook." }, { status: 401 });
-  }
-
-  const payload = (await request.json()) as ResendWebhookPayload;
+  const rawPayload = await request.text();
+  const payload = JSON.parse(rawPayload) as ResendWebhookPayload;
   const eventType = payload.type ?? "";
   const providerMessageId = payload.data?.email_id ?? null;
   const eventTime =

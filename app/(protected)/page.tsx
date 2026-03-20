@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { PageHeader } from "@/components/layout/page-header";
-import { StatCard } from "@/components/dashboard/stat-card";
 import { LeadList } from "@/components/leads/lead-list";
 import { LeadDetailPanel } from "@/components/leads/lead-detail-panel";
 import { NextLeadButton } from "@/components/leads/next-lead-button";
@@ -635,38 +634,40 @@ export default function ProtectedHomePage() {
           title="Call Queue"
           description="Follow-ups first, then untouched leads, then oldest contacted leads."
           actions={
-            <div className="flex flex-wrap items-center gap-3">
-              <button
-                type="button"
-                onClick={handleExportCurrentTab}
-                className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-900 transition hover:bg-slate-50 active:scale-[0.98]"
-              >
-                Export{" "}
-                {queueTab === "existing"
-                  ? "Existing"
-                  : queueTab === "chasing"
-                    ? "Chasing"
-                    : "New Leads"}{" "}
-                CSV
-              </button>
-              <NextLeadButton onClick={handleCallNextLead} />
-              <LogoutButton />
+            <div className="flex w-full max-w-xl flex-col gap-3 md:items-end">
+              <div className="w-full">
+                <label className="text-xs font-semibold uppercase tracking-wide text-slate-700">
+                  Search Contacts
+                </label>
+                <input
+                  type="text"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="Search by business, contact, phone, postcode, or town..."
+                  className="mt-2 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm font-medium text-slate-900"
+                />
+              </div>
+
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  onClick={handleExportCurrentTab}
+                  className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-900 transition hover:bg-slate-50 active:scale-[0.98]"
+                >
+                  Export{" "}
+                  {queueTab === "existing"
+                    ? "Existing"
+                    : queueTab === "chasing"
+                      ? "Chasing"
+                      : "New Leads"}{" "}
+                  CSV
+                </button>
+                <NextLeadButton onClick={handleCallNextLead} />
+                <LogoutButton />
+              </div>
             </div>
           }
         />
-
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-          <label className="text-xs font-semibold uppercase tracking-wide text-slate-700">
-            Search Contacts
-          </label>
-          <input
-            type="text"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Search by business, contact, phone, postcode, or town..."
-            className="mt-2 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm font-medium text-slate-900"
-          />
-        </div>
 
         {showUnfinishedWarning ? (
           <div className="rounded-2xl border border-amber-300 bg-amber-50 px-5 py-4">
@@ -697,20 +698,36 @@ export default function ProtectedHomePage() {
           </div>
         ) : null}
 
-        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <StatCard title="Calls Today" value={String(callsTodayCount)} />
-          <StatCard title="Follow-ups" value={String(queue.filter((lead) => Boolean(lead.computed_follow_up_at)).length)} />
-          <StatCard
-            title={
-              queueTab === "existing"
-                ? "Existing Customers"
-                : queueTab === "chasing"
-                  ? "Chasing"
-                  : "New Leads"
-            }
-            value={String(filteredQueue.length)}
-          />
-          <StatCard title="Broth Bite Orders" value={String(queue.filter((lead) => lead.last_outcome === "converted_to_customer").length)} />
+        <section className="grid gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm md:grid-cols-4">
+          <div className="text-center text-sm text-slate-600">
+            Calls Today :{" "}
+            <span className="text-base font-semibold text-slate-900">
+              {callsTodayCount}
+            </span>
+          </div>
+          <div className="text-center text-sm text-slate-600">
+            {queueTab === "existing"
+              ? "Existing Customers"
+              : queueTab === "chasing"
+                ? "Chasing"
+                : "New Leads"}{" "}
+            :{" "}
+            <span className="text-base font-semibold text-slate-900">
+              {filteredQueue.length}
+            </span>
+          </div>
+          <div className="text-center text-sm text-slate-600">
+            Follow Ups :{" "}
+            <span className="text-base font-semibold text-slate-900">
+              {queue.filter((lead) => Boolean(lead.computed_follow_up_at)).length}
+            </span>
+          </div>
+          <div className="text-center text-sm text-slate-600">
+            Broth Bites Ordered :{" "}
+            <span className="text-base font-semibold text-slate-900">
+              {queue.filter((lead) => lead.last_outcome === "converted_to_customer").length}
+            </span>
+          </div>
         </section>
 
         <div className="flex flex-wrap items-center gap-3">

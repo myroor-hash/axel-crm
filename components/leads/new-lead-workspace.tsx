@@ -16,8 +16,10 @@ export function NewLeadWorkspace({
   const [newSourceName, setNewSourceName] = useState("");
   const [showNewSourceInput, setShowNewSourceInput] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLookingUpPostcode, setIsLookingUpPostcode] = useState(false);
   const [resultMessage, setResultMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [postcodeMessage, setPostcodeMessage] = useState<string | null>(null);
   const [form, setForm] = useState({
     leadKind: "prospect" as LeadKind,
     leadSourceId: "",
@@ -119,6 +121,54 @@ export function NewLeadWorkspace({
       );
     } finally {
       setIsSubmitting(false);
+    }
+  }
+
+  async function handlePostcodeLookup() {
+    const postcode = form.postcode.trim();
+    if (!postcode) {
+      setPostcodeMessage("Enter a postcode first.");
+      return;
+    }
+
+    setIsLookingUpPostcode(true);
+    setPostcodeMessage(null);
+    setErrorMessage(null);
+
+    try {
+      const response = await fetch(
+        `https://api.postcodes.io/postcodes/${encodeURIComponent(postcode)}`
+      );
+      const payload = (await response.json()) as {
+        status: number;
+        result?: {
+          admin_district?: string | null;
+          parish?: string | null;
+          admin_county?: string | null;
+          region?: string | null;
+        };
+      };
+
+      if (!response.ok || !payload.result) {
+        setPostcodeMessage("No postcode match found.");
+        return;
+      }
+
+      const townCity =
+        payload.result.admin_district ?? payload.result.parish ?? "";
+      const countyRegion =
+        payload.result.admin_county ?? payload.result.region ?? "";
+
+      setForm((prev) => ({
+        ...prev,
+        townCity: prev.townCity || townCity,
+        countyRegion: prev.countyRegion || countyRegion,
+      }));
+      setPostcodeMessage("Town and county updated from postcode.");
+    } catch {
+      setPostcodeMessage("Unable to reach postcode lookup right now.");
+    } finally {
+      setIsLookingUpPostcode(false);
     }
   }
 
@@ -268,13 +318,28 @@ export function NewLeadWorkspace({
             <label className="text-xs font-semibold uppercase tracking-wide text-slate-700">
               Postcode
             </label>
-            <input
-              type="text"
-              value={form.postcode}
-              onChange={(event) => updateField("postcode", event.target.value)}
-              placeholder="Postcode"
-              className={inputClass}
-            />
+            <div className="mt-2 flex gap-3">
+              <input
+                type="text"
+                value={form.postcode}
+                onChange={(event) => updateField("postcode", event.target.value)}
+                placeholder="Postcode"
+                className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-900"
+              />
+              <button
+                type="button"
+                onClick={handlePostcodeLookup}
+                disabled={isLookingUpPostcode}
+                className={secondaryButton}
+              >
+                {isLookingUpPostcode ? "Looking..." : "Lookup"}
+              </button>
+            </div>
+            {postcodeMessage ? (
+              <p className="mt-2 text-xs font-medium text-slate-600">
+                {postcodeMessage}
+              </p>
+            ) : null}
           </div>
         </div>
 

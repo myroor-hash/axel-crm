@@ -571,21 +571,22 @@ export default function ProtectedHomePage() {
         <PageHeader
           title="Call Queue"
           description="Follow-ups first, then untouched leads, then oldest contacted leads."
+          topRight={
+            <div>
+              <label className="text-xs font-semibold uppercase tracking-wide text-slate-700">
+                Search Contacts
+              </label>
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Search by business, contact, phone, postcode, or town..."
+                className="mt-2 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm font-medium text-slate-900"
+              />
+            </div>
+          }
           actions={
             <div className="flex w-full max-w-xl flex-col gap-3 md:items-end">
-              <div className="w-full">
-                <label className="text-xs font-semibold uppercase tracking-wide text-slate-700">
-                  Search Contacts
-                </label>
-                <input
-                  type="text"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder="Search by business, contact, phone, postcode, or town..."
-                  className="mt-2 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm font-medium text-slate-900"
-                />
-              </div>
-
               <div className="flex flex-wrap items-center gap-3">
                 <NextLeadButton onClick={handleCallNextLead} />
                 <LogoutButton />

@@ -465,6 +465,28 @@ export async function sendLeadEmail(args: {
   }
 }
 
+export async function fetchCallsTodayCount(): Promise<number> {
+  const supabase = createBrowserSupabaseClient();
+  const startOfDay = new Date();
+  startOfDay.setHours(0, 0, 0, 0);
+
+  const endOfDay = new Date(startOfDay);
+  endOfDay.setDate(endOfDay.getDate() + 1);
+
+  const { count, error } = await supabase
+    .from("lead_activities")
+    .select("id", { count: "exact", head: true })
+    .eq("activity_type", "call")
+    .gte("created_at", startOfDay.toISOString())
+    .lt("created_at", endOfDay.toISOString());
+
+  if (error) {
+    throw new Error(`Failed to load today's call count: ${error.message}`);
+  }
+
+  return count ?? 0;
+}
+
 export async function fetchLeadActivities(leadId: string): Promise<DbActivity[]> {
   const supabase = createBrowserSupabaseClient();
 

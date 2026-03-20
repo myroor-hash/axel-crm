@@ -8,6 +8,7 @@ import { LeadDetailPanel } from "@/components/leads/lead-detail-panel";
 import { NextLeadButton } from "@/components/leads/next-lead-button";
 import { EmailComposePanel } from "@/components/leads/email-compose-panel";
 import {
+  fetchCallsTodayCount,
   fetchLeadActivities,
   fetchLeadById,
   fetchLeadEmails,
@@ -103,6 +104,7 @@ export default function ProtectedHomePage() {
   const [attachments, setAttachments] = useState<AttachmentOption[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [queueTab, setQueueTab] = useState<QueueTab>("existing");
+  const [callsTodayCount, setCallsTodayCount] = useState(0);
 
   useEffect(() => {
     async function loadQueue() {
@@ -123,8 +125,14 @@ export default function ProtectedHomePage() {
       setAttachments(files);
     }
 
+    async function loadCallsTodayCount() {
+      const count = await fetchCallsTodayCount();
+      setCallsTodayCount(count);
+    }
+
     loadQueue();
     loadAttachments();
+    loadCallsTodayCount();
   }, []);
 
   useEffect(() => {
@@ -509,6 +517,8 @@ export default function ProtectedHomePage() {
     });
 
     await refreshQueue(leadId);
+    const count = await fetchCallsTodayCount();
+    setCallsTodayCount(count);
   }
 
   function handleOpenPreparedEmail() {
@@ -688,7 +698,7 @@ export default function ProtectedHomePage() {
         ) : null}
 
         <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <StatCard title="Calls Today" value="0" />
+          <StatCard title="Calls Today" value={String(callsTodayCount)} />
           <StatCard title="Follow-ups" value={String(queue.filter((lead) => Boolean(lead.computed_follow_up_at)).length)} />
           <StatCard
             title={

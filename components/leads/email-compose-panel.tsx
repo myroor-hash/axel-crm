@@ -4,6 +4,24 @@ import { useMemo, useState } from "react";
 import type { AttachmentOption } from "@/features/attachments/types";
 import type { LeadDetail } from "@/features/leads/types";
 
+function buildEmailBody(contactName: string, resource?: AttachmentOption | null) {
+  const resourceCopy = resource
+    ? `You can review it here:\n${resource.url}\n`
+    : "";
+
+  return `Hi ${contactName},
+
+Great speaking earlier.
+
+As promised, here is the information we discussed.
+
+${resourceCopy}
+Please let me know if you'd like to discuss the range or try a sample.
+
+Best regards,
+Axel Elixir`;
+}
+
 export function EmailComposePanel({
   lead,
   attachments,
@@ -22,20 +40,10 @@ export function EmailComposePanel({
   const contactName = useMemo(() => {
     return lead.contact_first_name?.trim() || "there";
   }, [lead.contact_first_name]);
+  const defaultResource = attachments[0] ?? null;
 
   const [subject, setSubject] = useState("Great speaking earlier");
-  const [body, setBody] = useState(
-    `Hi ${contactName},
-
-Great speaking earlier.
-
-As promised, I’ve attached our Axel Elixir information sheet for review.
-
-Please let me know if you’d like to discuss the range or try a sample.
-
-Best regards,
-Axel Elixir`
-  );
+  const [body, setBody] = useState(buildEmailBody(contactName, defaultResource));
 
   const [attachmentId, setAttachmentId] = useState(
     attachments[0]?.id ?? ""
@@ -48,9 +56,16 @@ Axel Elixir`
     setIsSending(true);
 
     try {
+      const selectedResource =
+        attachments.find((file) => file.id === attachmentId) ?? null;
+      const outgoingBody =
+        selectedResource && !body.includes(selectedResource.url)
+          ? `${body.trim()}\n\nDownload link:\n${selectedResource.url}`
+          : body;
+
       await onSend({
         subject,
-        body,
+        body: outgoingBody,
         attachmentId,
       });
     } catch (error) {
@@ -69,7 +84,7 @@ Axel Elixir`
           Prepared Email
         </h2>
         <p className="mt-1 text-sm text-slate-600">
-          Review the message, choose the PDF, then send.
+          Review the message, choose the email link, then send.
         </p>
       </div>
 
@@ -95,19 +110,25 @@ Axel Elixir`
         </div>
 
         <div>
-          <label className="text-xs uppercase text-slate-500">Attachment</label>
+          <label className="text-xs uppercase text-slate-500">Email Link</label>
           <select
             value={attachmentId}
             onChange={(e) => setAttachmentId(e.target.value)}
             className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900"
           >
-            <option value="">No attachment</option>
+            <option value="">No link</option>
             {attachments.map((file) => (
               <option key={file.id} value={file.id}>
-                {file.fileName}
+                {file.label}
               </option>
             ))}
           </select>
+          {attachmentId ? (
+            <p className="mt-2 text-xs text-slate-500">
+              Link preview:{" "}
+              {attachments.find((file) => file.id === attachmentId)?.url ?? "—"}
+            </p>
+          ) : null}
         </div>
 
         {errorMessage ? (

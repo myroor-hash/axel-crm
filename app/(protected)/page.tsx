@@ -526,7 +526,7 @@ export default function ProtectedHomePage() {
     }
 
     const attachment = attachments.find((file) => file.id === payload.attachmentId);
-    const action = `Email Sent${attachment ? ` — ${attachment.fileName}` : ""}`;
+    const action = `Email Sent${attachment ? ` — ${attachment.label}` : ""}`;
 
     await sendLeadEmail({
       leadId: selectedLeadId,
@@ -534,7 +534,7 @@ export default function ProtectedHomePage() {
       subject: payload.subject,
       body: payload.body,
       attachmentId: payload.attachmentId,
-      attachmentName: attachment?.fileName ?? "",
+      attachmentName: attachment?.label ?? "",
     });
 
     const result = await recordEmailSent({

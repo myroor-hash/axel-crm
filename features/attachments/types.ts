@@ -1,4 +1,5 @@
 export interface AttachmentOption {
   id: string;
-  fileName: string;
+  label: string;
+  url: string;
 }

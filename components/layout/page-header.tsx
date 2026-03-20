@@ -26,7 +26,7 @@ export function PageHeader({
           </Link>
           <span className="text-slate-300">/</span>
           <Link href="/import" className="transition hover:text-slate-900 hover:underline hover:underline-offset-4">
-            Import
+            Import & Export
           </Link>
         </div>
       </div>

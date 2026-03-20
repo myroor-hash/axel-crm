@@ -21,6 +21,7 @@ type LeadStatus = LeadQueueItem["status"];
 type LeadRow = {
   id: string;
   external_ref: string | null;
+  created_at: string | null;
   shop_name: string;
   contact_name: string | null;
   contact_first_name: string | null;
@@ -47,6 +48,7 @@ type LeadRow = {
 type QueueLeadRow = Pick<
   LeadRow,
   | "external_ref"
+  | "created_at"
   | "id"
   | "shop_name"
   | "contact_name"
@@ -207,7 +209,7 @@ export async function fetchLeadQueue(): Promise<LeadQueueItem[]> {
       supabase
         .from("leads")
         .select(
-          "id, external_ref, shop_name, contact_name, contact_first_name, contact_last_name, phone_number, postcode, town_city, status, last_outcome, last_contacted_at, next_follow_up_at, is_active"
+          "id, external_ref, created_at, shop_name, contact_name, contact_first_name, contact_last_name, phone_number, postcode, town_city, status, last_outcome, last_contacted_at, next_follow_up_at, is_active"
         )
         .or("is_active.is.null,is_active.eq.true"),
       supabase
@@ -293,6 +295,7 @@ export async function fetchLeadQueue(): Promise<LeadQueueItem[]> {
   return queueLeads.map((lead) => ({
     id: lead.id,
     customer_number: lead.external_ref ?? null,
+    created_at: lead.created_at ?? null,
     shop_name: lead.shop_name,
     town_city: lead.town_city ?? null,
     contact_name: buildContactName(lead),

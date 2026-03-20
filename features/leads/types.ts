@@ -11,6 +11,7 @@ export type LeadStatus =
 export interface LeadQueueItem {
   id: string;
   customer_number?: string | null;
+  created_at?: string | null;
   shop_name: string;
   town_city: string | null;
   contact_name?: string | null;

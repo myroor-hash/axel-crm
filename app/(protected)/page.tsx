@@ -293,7 +293,9 @@ export default function ProtectedHomePage() {
         }
 
         if (a.computed_priority === 3) {
-          return a.shop_name.localeCompare(b.shop_name);
+          const aTime = a.created_at ? new Date(a.created_at).getTime() : 0;
+          const bTime = b.created_at ? new Date(b.created_at).getTime() : 0;
+          return bTime - aTime;
         }
 
         const aTime = a.last_contacted_at ? new Date(a.last_contacted_at).getTime() : 0;

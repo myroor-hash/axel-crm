@@ -42,6 +42,7 @@ export function LeadDetailPanel({
 }) {
   const [note, setNote] = useState("");
   const [manualFollowUpAt, setManualFollowUpAt] = useState("");
+  const [showAllEmails, setShowAllEmails] = useState(false);
 
   if (!lead) {
     return (
@@ -53,6 +54,7 @@ export function LeadDetailPanel({
 
   const activeLead = lead;
   const isReadOnly = readOnlyState?.isReadOnly ?? false;
+  const visibleEmails = showAllEmails ? emails : emails.slice(0, 1);
 
   const contactName =
     [activeLead.contact_first_name, activeLead.contact_last_name]
@@ -222,9 +224,20 @@ export function LeadDetailPanel({
       <div className="mt-6 border-t pt-6">
         <div className="flex items-center justify-between gap-3">
           <p className="text-xs uppercase text-slate-500">Email History</p>
-          <span className="text-xs text-slate-500">
-            {emails.length} recent email{emails.length === 1 ? "" : "s"}
-          </span>
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-slate-500">
+              {emails.length} recent email{emails.length === 1 ? "" : "s"}
+            </span>
+            {emails.length > 1 ? (
+              <button
+                type="button"
+                onClick={() => setShowAllEmails((prev) => !prev)}
+                className="text-xs font-medium text-slate-600 transition hover:text-slate-900"
+              >
+                {showAllEmails ? "Hide ▲" : "Show All ▼"}
+              </button>
+            ) : null}
+          </div>
         </div>
 
         {emails.length === 0 ? (
@@ -234,7 +247,7 @@ export function LeadDetailPanel({
           </p>
         ) : (
           <div className="mt-3 space-y-3">
-            {emails.map((email) => (
+            {visibleEmails.map((email) => (
               <div
                 key={email.id}
                 className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3"

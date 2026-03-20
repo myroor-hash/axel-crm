@@ -17,15 +17,15 @@ export function PageHeader({
           Axels CRM - lets get busy...
         </p>
         <div className="mt-2 flex flex-wrap items-center gap-3 text-sm font-medium text-slate-600">
-          <Link href="/" className="transition hover:text-slate-900">
+          <Link href="/" className="transition hover:text-slate-900 hover:underline hover:underline-offset-4">
             Home
           </Link>
           <span className="text-slate-300">/</span>
-          <Link href="/new-lead" className="transition hover:text-slate-900">
+          <Link href="/new-lead" className="transition hover:text-slate-900 hover:underline hover:underline-offset-4">
             New Lead
           </Link>
           <span className="text-slate-300">/</span>
-          <Link href="/import" className="transition hover:text-slate-900">
+          <Link href="/import" className="transition hover:text-slate-900 hover:underline hover:underline-offset-4">
             Import
           </Link>
         </div>

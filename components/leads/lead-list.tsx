@@ -102,11 +102,6 @@ export function LeadList({
             >
               {row.computed_status_badge ?? row.status}
             </span>
-            {row.computed_follow_up_at ? (
-              <p className="mt-1 text-xs font-medium text-slate-700">
-                {formatFollowUp(row.computed_follow_up_at)}
-              </p>
-            ) : null}
           </div>
 
           <div>{row.is_locked ? `🔒 ${row.locked_by_name ?? "Locked"}` : "Available"}</div>

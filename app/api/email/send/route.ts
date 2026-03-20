@@ -11,6 +11,25 @@ type SendEmailPayload = {
   attachmentName: string;
 };
 
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function textToTrackedHtml(text: string) {
+  const escaped = escapeHtml(text);
+  const linked = escaped.replace(
+    /(https?:\/\/[^\s<]+)/g,
+    '<a href="$1" style="color:#0f172a;text-decoration:underline;">$1</a>'
+  );
+
+  return `<div style="font-family:Arial,sans-serif;font-size:15px;line-height:1.6;color:#0f172a;white-space:pre-wrap;">${linked.replace(/\n/g, "<br />")}</div>`;
+}
+
 export async function POST(request: Request) {
   const user = await getCurrentUser();
 
@@ -45,6 +64,7 @@ export async function POST(request: Request) {
       to: [payload.to],
       subject: payload.subject,
       text: payload.body,
+      html: textToTrackedHtml(payload.body),
     }),
   });
 

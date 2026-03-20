@@ -611,6 +611,93 @@ export async function clearImportedCustomers(): Promise<void> {
   }
 }
 
+export async function createManualLead(args: {
+  leadKind: "prospect" | "customer";
+  leadSourceId?: string | null;
+  externalRef?: string | null;
+  shopName: string;
+  contactName?: string | null;
+  phoneNumber: string;
+  email?: string | null;
+  addressLine1?: string | null;
+  addressLine2?: string | null;
+  addressLine3?: string | null;
+  townCity?: string | null;
+  countyRegion?: string | null;
+  postcode?: string | null;
+  priorityNote?: string | null;
+}): Promise<void> {
+  const supabase = createBrowserSupabaseClient();
+
+  const shopName = args.shopName.trim();
+  const phoneNumber = args.phoneNumber.trim();
+
+  if (!shopName) {
+    throw new Error("Shop name is required.");
+  }
+
+  if (!phoneNumber) {
+    throw new Error("Phone number is required.");
+  }
+
+  const externalRef = args.externalRef?.trim() || null;
+  const normalizedPhone = normalizePhone(phoneNumber);
+
+  const { data: existingRows, error: existingError } = await supabase
+    .from("leads")
+    .select("external_ref, phone_number");
+
+  if (existingError) {
+    throw new Error(`Failed to check for duplicates: ${existingError.message}`);
+  }
+
+  const duplicateExists = (existingRows ?? []).some((lead) => {
+    const existingRef =
+      typeof lead.external_ref === "string" ? lead.external_ref.trim().toLowerCase() : null;
+    const existingPhone =
+      typeof lead.phone_number === "string" ? normalizePhone(lead.phone_number) : "";
+
+    return (
+      (externalRef && existingRef === externalRef.toLowerCase()) ||
+      (normalizedPhone && existingPhone === normalizedPhone)
+    );
+  });
+
+  if (duplicateExists) {
+    throw new Error("A lead with this customer number or phone number already exists.");
+  }
+
+  const { firstName, lastName } = splitContactName(args.contactName ?? undefined);
+  const status: LeadStatus =
+    args.leadKind === "customer" ? "customer" : "new";
+
+  const { error } = await supabase.from("leads").insert({
+    external_ref: externalRef,
+    shop_name: shopName,
+    contact_name: args.contactName?.trim() || null,
+    contact_first_name: firstName,
+    contact_last_name: lastName,
+    phone_number: phoneNumber,
+    email: args.email?.trim() || null,
+    address_line_1: args.addressLine1?.trim() || null,
+    address_line_2: args.addressLine2?.trim() || null,
+    address_line_3: args.addressLine3?.trim() || null,
+    town_city: args.townCity?.trim() || null,
+    county_region: args.countyRegion?.trim() || null,
+    postcode: args.postcode?.trim() || null,
+    lead_source_id: args.leadSourceId ?? null,
+    customer_flag: args.leadKind === "customer",
+    status,
+    priority_note: args.priorityNote?.trim() || null,
+    imported_at: args.leadKind === "customer" ? new Date().toISOString() : null,
+    is_active: true,
+  });
+
+  if (error) {
+    throw new Error(`Failed to create lead: ${error.message}`);
+  }
+}
+
 function mapCallAction(action: string): {
   status: LeadStatus;
   callOutcome: string | null;

@@ -21,6 +21,10 @@ export function PageHeader({
             Home
           </Link>
           <span className="text-slate-300">/</span>
+          <Link href="/new-lead" className="transition hover:text-slate-900">
+            New Lead
+          </Link>
+          <span className="text-slate-300">/</span>
           <Link href="/import" className="transition hover:text-slate-900">
             Import
           </Link>

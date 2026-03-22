@@ -570,11 +570,14 @@ export default function ProtectedHomePage() {
       <div className="mx-auto max-w-[1400px] space-y-6">
         <PageHeader
           topRight={
-            <div className="flex flex-col gap-3 md:items-end">
+            <div className="flex flex-col gap-2 md:items-end">
               <div className="w-full">
-                <label className="text-xs font-semibold uppercase tracking-wide text-slate-700">
-                  Search Contacts
-                </label>
+                <div className="flex items-center justify-between gap-3">
+                  <label className="text-xs font-semibold uppercase tracking-wide text-slate-700">
+                    Search Contacts
+                  </label>
+                  <LogoutButton />
+                </div>
                 <input
                   type="text"
                   value={searchTerm}
@@ -582,9 +585,6 @@ export default function ProtectedHomePage() {
                   placeholder="Search by business, contact, phone, postcode, or town..."
                   className="mt-2 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm font-medium text-slate-900"
                 />
-              </div>
-              <div className="flex w-full justify-end">
-                <LogoutButton />
               </div>
             </div>
           }

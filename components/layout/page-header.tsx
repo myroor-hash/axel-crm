@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ReactNode } from "react";
+import { AdminNavLink } from "@/components/layout/admin-nav-link";
 
 export function PageHeader({
   title,
@@ -35,6 +36,7 @@ export function PageHeader({
             <Link href="/import" className="transition hover:text-slate-900 hover:underline hover:underline-offset-4">
               Import & Export
             </Link>
+            <AdminNavLink />
           </div>
         </div>
         {topRight ? <div className="w-full md:w-auto md:min-w-[360px]">{topRight}</div> : null}

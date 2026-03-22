@@ -3,7 +3,6 @@
 import Image from "next/image";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { LogoutButton } from "@/components/auth/logout-button";
 import { createBrowserSupabaseClient } from "@/lib/db/client";
 
 type TotpFactor = {
@@ -157,7 +156,6 @@ export function MfaForm() {
               : "Enter the 6-digit code from your authenticator app to access the CRM."}
           </p>
         </div>
-        <LogoutButton />
       </div>
 
       {step === "loading" ? (

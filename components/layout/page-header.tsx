@@ -29,7 +29,7 @@ export function PageHeader({
             </Link>
             <span className="text-slate-300">/</span>
             <Link href="/business-card" className="transition hover:text-slate-900 hover:underline hover:underline-offset-4">
-              Business Card
+              Import Business Card
             </Link>
             <span className="text-slate-300">/</span>
             <Link href="/import" className="transition hover:text-slate-900 hover:underline hover:underline-offset-4">

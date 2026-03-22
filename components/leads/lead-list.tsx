@@ -47,10 +47,10 @@ export function LeadList({
     <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
       <div className="border-b border-slate-200 px-5 py-4">
         <h2 className="text-lg font-semibold tracking-tight text-slate-900">
-          Lead Queue
+          Call Queue
         </h2>
         <p className="mt-1 text-sm text-slate-600">
-          Shared queue view for the sales team.
+          Follow-ups first, then untouched leads, then oldest contacted leads.
         </p>
       </div>
 

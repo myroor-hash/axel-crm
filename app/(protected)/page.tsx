@@ -569,26 +569,21 @@ export default function ProtectedHomePage() {
     <main className="min-h-screen bg-slate-50 p-6">
       <div className="mx-auto max-w-[1400px] space-y-6">
         <PageHeader
-          title="Call Queue"
-          description="Follow-ups first, then untouched leads, then oldest contacted leads."
           topRight={
-            <div>
-              <label className="text-xs font-semibold uppercase tracking-wide text-slate-700">
-                Search Contacts
-              </label>
-              <input
-                type="text"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Search by business, contact, phone, postcode, or town..."
-                className="mt-2 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm font-medium text-slate-900"
-              />
-            </div>
-          }
-          actions={
-            <div className="flex w-full max-w-xl flex-col gap-3 md:items-end">
-              <div className="flex flex-wrap items-center gap-3">
-                <NextLeadButton onClick={handleCallNextLead} />
+            <div className="flex flex-col gap-3 md:items-end">
+              <div className="w-full">
+                <label className="text-xs font-semibold uppercase tracking-wide text-slate-700">
+                  Search Contacts
+                </label>
+                <input
+                  type="text"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="Search by business, contact, phone, postcode, or town..."
+                  className="mt-2 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm font-medium text-slate-900"
+                />
+              </div>
+              <div className="flex w-full justify-end">
                 <LogoutButton />
               </div>
             </div>
@@ -656,40 +651,43 @@ export default function ProtectedHomePage() {
           </div>
         </section>
 
-        <div className="flex flex-wrap items-center gap-3">
-          <button
-            type="button"
-            onClick={() => handleSelectQueueTab("existing")}
-            className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
-              queueTab === "existing"
-                ? "bg-slate-900 text-white"
-                : "border border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
-            }`}
-          >
-            Existing Customers ({queue.filter((lead) => lead.has_invoice_history).length})
-          </button>
-          <button
-            type="button"
-            onClick={() => handleSelectQueueTab("chasing")}
-            className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
-              queueTab === "chasing"
-                ? "bg-slate-900 text-white"
-                : "border border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
-            }`}
-          >
-            Chasing ({queue.filter((lead) => !lead.has_invoice_history && lead.computed_has_contact_history).length})
-          </button>
-          <button
-            type="button"
-            onClick={() => handleSelectQueueTab("new_leads")}
-            className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
-              queueTab === "new_leads"
-                ? "bg-slate-900 text-white"
-                : "border border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
-            }`}
-          >
-            New Leads ({queue.filter((lead) => !lead.has_invoice_history && !lead.computed_has_contact_history).length})
-          </button>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              onClick={() => handleSelectQueueTab("existing")}
+              className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
+                queueTab === "existing"
+                  ? "bg-slate-900 text-white"
+                  : "border border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+              }`}
+            >
+              Existing Customers ({queue.filter((lead) => lead.has_invoice_history).length})
+            </button>
+            <button
+              type="button"
+              onClick={() => handleSelectQueueTab("chasing")}
+              className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
+                queueTab === "chasing"
+                  ? "bg-slate-900 text-white"
+                  : "border border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+              }`}
+            >
+              Chasing ({queue.filter((lead) => !lead.has_invoice_history && lead.computed_has_contact_history).length})
+            </button>
+            <button
+              type="button"
+              onClick={() => handleSelectQueueTab("new_leads")}
+              className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
+                queueTab === "new_leads"
+                  ? "bg-slate-900 text-white"
+                  : "border border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+              }`}
+            >
+              New Leads ({queue.filter((lead) => !lead.has_invoice_history && !lead.computed_has_contact_history).length})
+            </button>
+          </div>
+          <NextLeadButton onClick={handleCallNextLead} />
         </div>
 
         <section className="grid gap-6 lg:grid-cols-2">

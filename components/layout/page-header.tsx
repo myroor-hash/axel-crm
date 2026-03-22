@@ -7,7 +7,7 @@ export function PageHeader({
   actions,
   topRight,
 }: {
-  title: string;
+  title?: string;
   description?: string;
   actions?: ReactNode;
   topRight?: ReactNode;
@@ -36,17 +36,21 @@ export function PageHeader({
         {topRight ? <div className="w-full md:w-auto md:min-w-[360px]">{topRight}</div> : null}
       </div>
 
-      <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
-        <div>
-          <h1 className="mt-1 text-2xl font-semibold tracking-tight text-slate-900">
-            {title}
-          </h1>
-          {description ? (
-            <p className="mt-1 text-sm text-slate-600">{description}</p>
-          ) : null}
+      {title || description || actions ? (
+        <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+          <div>
+            {title ? (
+              <h1 className="mt-1 text-2xl font-semibold tracking-tight text-slate-900">
+                {title}
+              </h1>
+            ) : null}
+            {description ? (
+              <p className="mt-1 text-sm text-slate-600">{description}</p>
+            ) : null}
+          </div>
+          {actions ? <div className="md:pt-1">{actions}</div> : null}
         </div>
-        {actions ? <div className="md:pt-1">{actions}</div> : null}
-      </div>
+      ) : null}
     </div>
   );
 }

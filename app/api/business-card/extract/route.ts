@@ -33,6 +33,33 @@ function extractJsonObject(text: string) {
   return text.slice(firstBrace, lastBrace + 1).trim();
 }
 
+function extractOutputText(payload: {
+  output_text?: string;
+  output?: Array<{
+    content?: Array<{
+      type?: string;
+      text?: string;
+    }>;
+  }>;
+}) {
+  if (typeof payload.output_text === "string" && payload.output_text.trim()) {
+    return payload.output_text.trim();
+  }
+
+  const chunks =
+    payload.output
+      ?.flatMap((item) => item.content ?? [])
+      .map((item) => {
+        if (typeof item.text === "string") {
+          return item.text;
+        }
+        return "";
+      })
+      .filter(Boolean) ?? [];
+
+  return chunks.join("\n").trim();
+}
+
 export async function POST(request: Request) {
   const openAiApiKey = process.env.OPENAI_API_KEY;
 
@@ -87,6 +114,12 @@ export async function POST(request: Request) {
   const payload = (await response.json().catch(() => null)) as
     | {
         output_text?: string;
+        output?: Array<{
+          content?: Array<{
+            type?: string;
+            text?: string;
+          }>;
+        }>;
         error?: { message?: string };
       }
     | null;
@@ -98,7 +131,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const outputText = payload?.output_text ?? "";
+  const outputText = payload ? extractOutputText(payload) : "";
 
   try {
     const parsed = JSON.parse(extractJsonObject(outputText));

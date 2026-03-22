@@ -1,5 +1,9 @@
 import { redirect } from "next/navigation";
-import { getCurrentMfaLevel, getCurrentUser } from "@/lib/auth/session";
+import {
+  getCurrentCrmUser,
+  getCurrentMfaLevel,
+  getCurrentUser,
+} from "@/lib/auth/session";
 
 export default async function ProtectedLayout({
   children,
@@ -24,6 +28,12 @@ export default async function ProtectedLayout({
 
   if (currentLevel !== "aal2") {
     redirect("/auth/mfa");
+  }
+
+  const crmUser = await getCurrentCrmUser();
+
+  if (!crmUser || !crmUser.is_active) {
+    redirect("/auth/access-denied");
   }
 
   return children;

@@ -94,7 +94,7 @@ export function LeadList({
 
           <div>
             <span
-              className={`inline-flex rounded-full px-2 py-1 text-xs font-medium ${
+              className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ${
                 row.computed_follow_up_due
                   ? "border border-emerald-300 bg-emerald-50 text-emerald-900"
                   : "border border-slate-200 bg-slate-50 text-slate-700"

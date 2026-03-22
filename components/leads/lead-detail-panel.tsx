@@ -56,7 +56,7 @@ export function LeadDetailPanel({
   const isReadOnly = readOnlyState?.isReadOnly ?? false;
   const visibleEmails = showAllEmails ? emails : emails.slice(0, 1);
   const sectionHeaderClass =
-    "mb-4 -mx-6 bg-slate-950 px-6 py-3 text-xs font-semibold uppercase tracking-[0.18em] text-white";
+    "mb-4 rounded-xl bg-slate-950 px-4 py-3 text-xs font-semibold uppercase tracking-[0.18em] text-white";
 
   const contactName =
     [activeLead.contact_first_name, activeLead.contact_last_name]

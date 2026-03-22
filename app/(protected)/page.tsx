@@ -572,19 +572,19 @@ export default function ProtectedHomePage() {
           topRight={
             <div className="flex flex-col gap-2 md:items-end">
               <div className="w-full">
-                <div className="flex items-center justify-between gap-3">
-                  <label className="text-xs font-semibold uppercase tracking-wide text-slate-700">
+                <div className="flex items-center gap-3">
+                  <label className="whitespace-nowrap text-xs font-semibold uppercase tracking-wide text-slate-700">
                     Search Contacts
                   </label>
+                  <input
+                    type="text"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    placeholder="Search by business, contact, phone, postcode, or town..."
+                    className="min-w-0 flex-1 rounded-xl border border-slate-300 px-3 py-2 text-sm font-medium text-slate-900"
+                  />
                   <LogoutButton />
                 </div>
-                <input
-                  type="text"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder="Search by business, contact, phone, postcode, or town..."
-                  className="mt-2 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm font-medium text-slate-900"
-                />
               </div>
             </div>
           }

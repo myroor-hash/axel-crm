@@ -52,6 +52,19 @@ export function BusinessCardWorkspace({
   const [formVersion, setFormVersion] = useState(0);
   const [summary, setSummary] = useState<ExtractedBusinessCard | null>(null);
 
+  function handleClear() {
+    if (previewUrl?.startsWith("blob:")) {
+      URL.revokeObjectURL(previewUrl);
+    }
+
+    setPreviewUrl(null);
+    setRawText("");
+    setErrorMessage(null);
+    setSummary(null);
+    setFormSeed({});
+    setFormVersion((prev) => prev + 1);
+  }
+
   async function handleFileUpload(file: File) {
     setErrorMessage(null);
     setIsScanning(true);
@@ -106,20 +119,31 @@ export function BusinessCardWorkspace({
         <div className="mt-6 grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
           <div className="space-y-4">
             <div>
-              <label className={`inline-flex cursor-pointer items-center justify-center ${primaryButton}`}>
-                Upload Business Card
-                <input
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={(event) => {
-                    const file = event.target.files?.[0];
-                    if (file) {
-                      void handleFileUpload(file);
-                    }
-                  }}
-                />
-              </label>
+              <div className="flex flex-wrap items-center gap-3">
+                <label className={`inline-flex cursor-pointer items-center justify-center ${primaryButton}`}>
+                  Upload Business Card
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(event) => {
+                      const file = event.target.files?.[0];
+                      if (file) {
+                        void handleFileUpload(file);
+                      }
+                    }}
+                  />
+                </label>
+                {(previewUrl || summary || rawText) ? (
+                  <button
+                    type="button"
+                    onClick={handleClear}
+                    className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-900 transition hover:bg-slate-50 active:scale-[0.98]"
+                  >
+                    Clear Captured Data
+                  </button>
+                ) : null}
+              </div>
               {isScanning ? (
                 <p className="mt-3 text-sm font-medium text-slate-700">
                   Reading the card and extracting details...

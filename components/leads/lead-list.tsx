@@ -78,7 +78,7 @@ export function LeadList({
                   className="inline-flex items-center rounded-full border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-900"
                   title="Follow-up due now"
                 >
-                  Phone Due
+                  Phone Now
                 </span>
               ) : null}
             </div>

@@ -29,15 +29,20 @@ export async function middleware(request: NextRequest) {
     process.env.NODE_ENV !== "production" &&
     process.env.CRM_DEV_BYPASS_AUTH === "true";
 
+  const applyNoIndexHeaders = (response: NextResponse) => {
+    response.headers.set("X-Robots-Tag", "noindex, nofollow, noarchive, nosnippet, noimageindex");
+    return response;
+  };
+
   if (authBypassEnabled) {
-    return NextResponse.next();
+    return applyNoIndexHeaders(NextResponse.next());
   }
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
   if (!supabaseUrl || !supabaseAnonKey) {
-    return NextResponse.next();
+    return applyNoIndexHeaders(NextResponse.next());
   }
 
   const response = NextResponse.next({
@@ -91,24 +96,24 @@ export async function middleware(request: NextRequest) {
 
   if (!user && isProtectedRoute) {
     const loginUrl = new URL("/login", request.url);
-    return NextResponse.redirect(loginUrl);
+    return applyNoIndexHeaders(NextResponse.redirect(loginUrl));
   }
 
   if (user && currentLevel !== "aal2" && !trustedDevice && isProtectedRoute) {
-    return NextResponse.redirect(new URL("/auth/mfa", request.url));
+    return applyNoIndexHeaders(NextResponse.redirect(new URL("/auth/mfa", request.url)));
   }
 
   if (user && isLoginRoute) {
-    return NextResponse.redirect(
+    return applyNoIndexHeaders(NextResponse.redirect(
       new URL(currentLevel === "aal2" || trustedDevice ? "/" : "/auth/mfa", request.url)
-    );
+    ));
   }
 
   if (user && isMfaRoute && (currentLevel === "aal2" || trustedDevice)) {
-    return NextResponse.redirect(new URL("/", request.url));
+    return applyNoIndexHeaders(NextResponse.redirect(new URL("/", request.url)));
   }
 
-  return response;
+  return applyNoIndexHeaders(response);
 }
 
 export const config = {

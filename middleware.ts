@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
+import {
+  isTrustedMfaCookieValid,
+  TRUSTED_MFA_COOKIE,
+} from "@/lib/auth/trusted-device";
 
 type GenericTable = {
   Row: Record<string, unknown>;
@@ -82,22 +86,25 @@ export async function middleware(request: NextRequest) {
     currentLevel = data?.currentLevel ?? null;
   }
 
+  const trustedMfaCookie = request.cookies.get(TRUSTED_MFA_COOKIE)?.value;
+  const trustedDevice = isTrustedMfaCookieValid(trustedMfaCookie, user?.id);
+
   if (!user && isProtectedRoute) {
     const loginUrl = new URL("/login", request.url);
     return NextResponse.redirect(loginUrl);
   }
 
-  if (user && currentLevel !== "aal2" && isProtectedRoute) {
+  if (user && currentLevel !== "aal2" && !trustedDevice && isProtectedRoute) {
     return NextResponse.redirect(new URL("/auth/mfa", request.url));
   }
 
   if (user && isLoginRoute) {
     return NextResponse.redirect(
-      new URL(currentLevel === "aal2" ? "/" : "/auth/mfa", request.url)
+      new URL(currentLevel === "aal2" || trustedDevice ? "/" : "/auth/mfa", request.url)
     );
   }
 
-  if (user && isMfaRoute && currentLevel === "aal2") {
+  if (user && isMfaRoute && (currentLevel === "aal2" || trustedDevice)) {
     return NextResponse.redirect(new URL("/", request.url));
   }
 

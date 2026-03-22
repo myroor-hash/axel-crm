@@ -15,6 +15,8 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Axels CRM",
   description: "Private CRM for Axel Elixir.",
+  applicationName: "Aggybear Bespoke Software",
+  generator: "Aggybear Bespoke Software",
   robots: {
     index: false,
     follow: false,
@@ -38,9 +40,14 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} min-h-screen bg-slate-50 antialiased`}
       >
-        {children}
+        <div className="flex min-h-screen flex-col">
+          <div className="flex-1">{children}</div>
+          <footer className="border-t border-slate-200 bg-white px-6 py-4 text-center text-xs font-medium text-slate-600">
+            Copyright Aggybear Bespoke Software
+          </footer>
+        </div>
       </body>
     </html>
   );

@@ -32,7 +32,7 @@ export default async function ProtectedLayout({
   const { currentLevel } = await getCurrentMfaLevel();
   const cookieStore = await cookies();
   const trustedMfaCookie = cookieStore.get(TRUSTED_MFA_COOKIE)?.value;
-  const trustedDevice = isTrustedMfaCookieValid(trustedMfaCookie, user.id);
+  const trustedDevice = await isTrustedMfaCookieValid(trustedMfaCookie, user.id);
 
   if (currentLevel !== "aal2" && !trustedDevice) {
     redirect("/auth/mfa");

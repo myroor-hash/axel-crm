@@ -14,7 +14,7 @@ export async function POST() {
   }
 
   const response = NextResponse.json({ ok: true });
-  response.cookies.set(TRUSTED_MFA_COOKIE, createTrustedMfaCookieValue(user.id), {
+  response.cookies.set(TRUSTED_MFA_COOKIE, await createTrustedMfaCookieValue(user.id), {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",

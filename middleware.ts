@@ -87,7 +87,7 @@ export async function middleware(request: NextRequest) {
   }
 
   const trustedMfaCookie = request.cookies.get(TRUSTED_MFA_COOKIE)?.value;
-  const trustedDevice = isTrustedMfaCookieValid(trustedMfaCookie, user?.id);
+  const trustedDevice = await isTrustedMfaCookieValid(trustedMfaCookie, user?.id);
 
   if (!user && isProtectedRoute) {
     const loginUrl = new URL("/login", request.url);

@@ -45,11 +45,11 @@ export function LeadList({
 
   return (
     <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-      <div className="border-b border-slate-200 px-5 py-4">
-        <h2 className="text-lg font-semibold tracking-tight text-slate-900">
+      <div className="border-b border-slate-200 bg-slate-950 px-5 py-4 text-white">
+        <h2 className="text-lg font-semibold tracking-tight text-white">
           Call Queue
         </h2>
-        <p className="mt-1 text-sm text-slate-600">
+        <p className="mt-1 text-sm text-slate-200">
           Follow-ups first, then untouched leads, then oldest contacted leads.
         </p>
       </div>

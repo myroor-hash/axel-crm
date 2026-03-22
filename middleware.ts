@@ -62,17 +62,42 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
   const isLoginRoute = request.nextUrl.pathname === "/login";
   const isAuthCallback = request.nextUrl.pathname.startsWith("/auth/callback");
+  const isMfaRoute = request.nextUrl.pathname.startsWith("/auth/mfa");
   const isEmailApiRoute = request.nextUrl.pathname.startsWith("/api/email/");
-  const isProtectedRoute = !isLoginRoute && !isAuthCallback && !isEmailApiRoute;
+  const isProtectedRoute =
+    !isLoginRoute && !isAuthCallback && !isEmailApiRoute && !isMfaRoute;
+
+  const accessToken = session?.access_token;
+  let currentLevel: string | null = null;
+
+  if (accessToken) {
+    const { data } =
+      await supabase.auth.mfa.getAuthenticatorAssuranceLevel(accessToken);
+    currentLevel = data?.currentLevel ?? null;
+  }
 
   if (!user && isProtectedRoute) {
     const loginUrl = new URL("/login", request.url);
     return NextResponse.redirect(loginUrl);
   }
 
+  if (user && currentLevel !== "aal2" && isProtectedRoute) {
+    return NextResponse.redirect(new URL("/auth/mfa", request.url));
+  }
+
   if (user && isLoginRoute) {
+    return NextResponse.redirect(
+      new URL(currentLevel === "aal2" ? "/" : "/auth/mfa", request.url)
+    );
+  }
+
+  if (user && isMfaRoute && currentLevel === "aal2") {
     return NextResponse.redirect(new URL("/", request.url));
   }
 

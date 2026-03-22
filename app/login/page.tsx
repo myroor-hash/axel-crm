@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { LoginForm } from "@/components/auth/login-form";
-import { getCurrentUser } from "@/lib/auth/session";
+import { getCurrentMfaLevel, getCurrentUser } from "@/lib/auth/session";
 
 export default async function LoginPage() {
   const authBypassEnabled =
@@ -14,7 +14,8 @@ export default async function LoginPage() {
   const user = await getCurrentUser();
 
   if (user) {
-    redirect("/");
+    const { currentLevel } = await getCurrentMfaLevel();
+    redirect(currentLevel === "aal2" ? "/" : "/auth/mfa");
   }
 
   return (

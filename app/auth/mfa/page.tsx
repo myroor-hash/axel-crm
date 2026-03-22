@@ -1,17 +1,14 @@
 import { redirect } from "next/navigation";
+import { MfaForm } from "@/components/auth/mfa-form";
 import { getCurrentMfaLevel, getCurrentUser } from "@/lib/auth/session";
 
-export default async function ProtectedLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default async function MfaPage() {
   const authBypassEnabled =
     process.env.NODE_ENV !== "production" &&
     process.env.CRM_DEV_BYPASS_AUTH === "true";
 
   if (authBypassEnabled) {
-    return children;
+    redirect("/");
   }
 
   const user = await getCurrentUser();
@@ -22,9 +19,13 @@ export default async function ProtectedLayout({
 
   const { currentLevel } = await getCurrentMfaLevel();
 
-  if (currentLevel !== "aal2") {
-    redirect("/auth/mfa");
+  if (currentLevel === "aal2") {
+    redirect("/");
   }
 
-  return children;
+  return (
+    <main className="flex min-h-screen items-center justify-center bg-slate-50 p-6">
+      <MfaForm />
+    </main>
+  );
 }

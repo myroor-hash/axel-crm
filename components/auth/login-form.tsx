@@ -40,7 +40,14 @@ export function LoginForm() {
         throw signInError;
       }
 
-      router.replace("/");
+      const { data: assuranceData, error: assuranceError } =
+        await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+
+      if (assuranceError) {
+        throw assuranceError;
+      }
+
+      router.replace(assuranceData.currentLevel === "aal2" ? "/" : "/auth/mfa");
       router.refresh();
     } catch (submissionError) {
       setError(

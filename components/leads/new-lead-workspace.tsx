@@ -1,16 +1,56 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createLeadSource } from "@/features/lead-sources/queries";
 import { createManualLead } from "@/features/leads/queries";
 import type { LeadSource } from "@/features/lead-sources/types";
 
 type LeadKind = "prospect" | "customer";
 
+export type NewLeadFormValues = {
+  leadKind: LeadKind;
+  leadSourceId: string;
+  customerNumber: string;
+  shopName: string;
+  contactName: string;
+  phoneNumber: string;
+  email: string;
+  addressLine1: string;
+  addressLine2: string;
+  addressLine3: string;
+  townCity: string;
+  countyRegion: string;
+  postcode: string;
+  priorityNote: string;
+};
+
+const emptyForm: NewLeadFormValues = {
+  leadKind: "prospect",
+  leadSourceId: "",
+  customerNumber: "",
+  shopName: "",
+  contactName: "",
+  phoneNumber: "",
+  email: "",
+  addressLine1: "",
+  addressLine2: "",
+  addressLine3: "",
+  townCity: "",
+  countyRegion: "",
+  postcode: "",
+  priorityNote: "",
+};
+
 export function NewLeadWorkspace({
   leadSources,
+  initialValues,
+  title = "New Lead",
+  description = "Add a single prospect or customer manually, including where the lead came from and any call context worth keeping.",
 }: {
   leadSources: LeadSource[];
+  initialValues?: Partial<NewLeadFormValues>;
+  title?: string;
+  description?: string;
 }) {
   const [sources, setSources] = useState<LeadSource[]>(leadSources);
   const [newSourceName, setNewSourceName] = useState("");
@@ -20,22 +60,19 @@ export function NewLeadWorkspace({
   const [resultMessage, setResultMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [postcodeMessage, setPostcodeMessage] = useState<string | null>(null);
-  const [form, setForm] = useState({
-    leadKind: "prospect" as LeadKind,
-    leadSourceId: "",
-    customerNumber: "",
-    shopName: "",
-    contactName: "",
-    phoneNumber: "",
-    email: "",
-    addressLine1: "",
-    addressLine2: "",
-    addressLine3: "",
-    townCity: "",
-    countyRegion: "",
-    postcode: "",
-    priorityNote: "",
+  const [form, setForm] = useState<NewLeadFormValues>({
+    ...emptyForm,
+    ...initialValues,
   });
+
+  useEffect(() => {
+    if (!initialValues) return;
+
+    setForm((prev) => ({
+      ...prev,
+      ...initialValues,
+    }));
+  }, [initialValues]);
 
   const activeSources = useMemo(
     () => sources.filter((source) => source.is_active),
@@ -101,19 +138,9 @@ export function NewLeadWorkspace({
           : "Prospect added successfully."
       );
       setForm((prev) => ({
-        ...prev,
-        customerNumber: "",
-        shopName: "",
-        contactName: "",
-        phoneNumber: "",
-        email: "",
-        addressLine1: "",
-        addressLine2: "",
-        addressLine3: "",
-        townCity: "",
-        countyRegion: "",
-        postcode: "",
-        priorityNote: "",
+        ...emptyForm,
+        leadKind: prev.leadKind,
+        leadSourceId: prev.leadSourceId,
       }));
     } catch (error) {
       setErrorMessage(
@@ -175,11 +202,8 @@ export function NewLeadWorkspace({
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
       <div className="border-b border-slate-100 pb-4">
-        <h2 className="text-xl font-semibold text-slate-900">New Lead</h2>
-        <p className="mt-1 text-sm text-slate-700">
-          Add a single prospect or customer manually, including where the lead
-          came from and any call context worth keeping.
-        </p>
+        <h2 className="text-xl font-semibold text-slate-900">{title}</h2>
+        <p className="mt-1 text-sm text-slate-700">{description}</p>
       </div>
 
       <form className="mt-6 space-y-5" onSubmit={handleSubmit}>

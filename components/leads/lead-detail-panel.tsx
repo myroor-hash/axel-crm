@@ -55,6 +55,8 @@ export function LeadDetailPanel({
   const activeLead = lead;
   const isReadOnly = readOnlyState?.isReadOnly ?? false;
   const visibleEmails = showAllEmails ? emails : emails.slice(0, 1);
+  const sectionHeaderClass =
+    "mb-4 -mx-6 bg-slate-950 px-6 py-3 text-xs font-semibold uppercase tracking-[0.18em] text-white";
 
   const contactName =
     [activeLead.contact_first_name, activeLead.contact_last_name]
@@ -120,11 +122,11 @@ export function LeadDetailPanel({
           {activeLead.shop_name}
         </h2>
 
-        <p className="mt-1 text-sm text-slate-200">
-          {isReadOnly
-            ? `Read-only. Locked by ${readOnlyState?.lockedByName ?? "another user"}`
-            : "Editable lead"}
-        </p>
+        {isReadOnly ? (
+          <p className="mt-1 text-sm text-slate-200">
+            Read-only. Locked by {readOnlyState?.lockedByName ?? "another user"}
+          </p>
+        ) : null}
       </div>
 
       <div className="mt-6 space-y-4 text-sm text-slate-700">
@@ -164,8 +166,8 @@ export function LeadDetailPanel({
       </div>
 
       <div className="mt-6 border-t pt-6">
+        <div className={sectionHeaderClass}>Previous Invoices</div>
         <div className="flex items-center justify-between gap-3">
-          <p className="text-xs uppercase text-slate-500">Previous Invoices</p>
           <span className="text-xs text-slate-500">
             {invoices.length} recent invoice{invoices.length === 1 ? "" : "s"}
           </span>
@@ -222,8 +224,8 @@ export function LeadDetailPanel({
       </div>
 
       <div className="mt-6 border-t pt-6">
+        <div className={sectionHeaderClass}>Email History</div>
         <div className="flex items-center justify-between gap-3">
-          <p className="text-xs uppercase text-slate-500">Email History</p>
           <div className="flex items-center gap-3">
             <span className="text-xs text-slate-500">
               {emails.length} recent email{emails.length === 1 ? "" : "s"}
@@ -292,7 +294,7 @@ export function LeadDetailPanel({
       </div>
 
       <div className="mt-6 border-t pt-6">
-        <p className="text-xs uppercase text-slate-500">Note</p>
+        <div className={sectionHeaderClass}>Note</div>
 
         <textarea
           value={note}
@@ -305,9 +307,7 @@ export function LeadDetailPanel({
 
         <div className="mt-4">
           <div className="flex items-center justify-between gap-3">
-            <p className="text-xs uppercase text-slate-500">
-              Manual Follow-Up
-            </p>
+            <p className="text-xs uppercase text-slate-500">Manual Follow-Up</p>
             {manualFollowUpAt ? (
               <button
                 type="button"
@@ -333,7 +333,7 @@ export function LeadDetailPanel({
       </div>
 
       <div className="mt-6 border-t pt-6">
-        <p className="text-xs uppercase text-slate-500">Call Outcome</p>
+        <div className={sectionHeaderClass}>Call Outcome</div>
 
         <div className="mt-3 flex flex-wrap gap-2">
           <button

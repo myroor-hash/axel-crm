@@ -195,15 +195,32 @@ async function fetchCurrentCrmUser(): Promise<CurrentCrmUser | null> {
 
       const normalizedEmail = user.email.trim().toLowerCase();
 
-      const { data, error } = await supabase
+      const { data: authLinkedUser, error: authLinkedError } = await supabase
         .from("users")
         .select("id, full_name")
-        .or(`auth_user_id.eq.${user.id},email.eq.${normalizedEmail}`)
+        .eq("auth_user_id", user.id)
         .eq("is_active", true)
         .maybeSingle();
 
-      if (error || !data) {
+      if (authLinkedError) {
         return null;
+      }
+
+      let data = authLinkedUser;
+
+      if (!data) {
+        const { data: emailMatchedUser, error: emailMatchError } = await supabase
+          .from("users")
+          .select("id, full_name")
+          .eq("email", normalizedEmail)
+          .eq("is_active", true)
+          .maybeSingle();
+
+        if (emailMatchError || !emailMatchedUser) {
+          return null;
+        }
+
+        data = emailMatchedUser;
       }
 
       const crmUserId = String(data.id);

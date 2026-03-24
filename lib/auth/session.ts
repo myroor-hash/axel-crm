@@ -60,17 +60,33 @@ export async function getCurrentCrmUser() {
   const supabase = createAdminSupabaseClient();
   const normalizedEmail = user.email.trim().toLowerCase();
 
-  const { data: existingUsers, error } = await supabase
+  const { data: authLinkedUser, error: authLinkedError } = await supabase
     .from("users")
     .select("id, auth_user_id, full_name, email, role, is_active")
-    .or(`auth_user_id.eq.${user.id},email.eq.${normalizedEmail}`)
-    .limit(1);
+    .eq("auth_user_id", user.id)
+    .eq("is_active", true)
+    .maybeSingle();
 
-  if (error) {
-    throw error;
+  if (authLinkedError) {
+    throw authLinkedError;
   }
 
-  const existingUser = ((existingUsers ?? [])[0] ?? null) as CrmUserRow | null;
+  let existingUser = (authLinkedUser ?? null) as CrmUserRow | null;
+
+  if (!existingUser) {
+    const { data: emailMatchedUser, error: emailMatchError } = await supabase
+      .from("users")
+      .select("id, auth_user_id, full_name, email, role, is_active")
+      .eq("email", normalizedEmail)
+      .eq("is_active", true)
+      .maybeSingle();
+
+    if (emailMatchError) {
+      throw emailMatchError;
+    }
+
+    existingUser = (emailMatchedUser ?? null) as CrmUserRow | null;
+  }
 
   if (existingUser) {
     if (!existingUser.auth_user_id) {

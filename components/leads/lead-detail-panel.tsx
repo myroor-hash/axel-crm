@@ -431,11 +431,10 @@ export function LeadDetailPanel({
               className="rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-900"
             >
               <div className="font-medium text-slate-900">
-                {a.time} — {a.action}
+                {a.action}
+                {a.actorName ? ` - ${a.actorName}` : ""}
               </div>
-              {a.actorName ? (
-                <div className="mt-1 text-xs text-slate-500">By {a.actorName}</div>
-              ) : null}
+              <div className="mt-1 text-xs text-slate-500">{a.time}</div>
               {a.note ? <div className="mt-1 text-slate-900">{a.note}</div> : null}
             </div>
           ))}

@@ -180,58 +180,34 @@ type CurrentCrmUser = {
 };
 
 async function fetchCurrentCrmUser(): Promise<CurrentCrmUser | null> {
-  const supabase = createBrowserSupabaseClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const currentCrmUserEndpoint = "/api/auth/current-crm-user" as string;
 
-  if (!user?.id || !user.email) {
+  const response = await fetch(currentCrmUserEndpoint, {
+    method: "GET",
+    cache: "no-store",
+  });
+
+  if (response.status === 401) {
     return null;
   }
 
-  const normalizedEmail = user.email.trim().toLowerCase();
+  if (!response.ok) {
+    throw new Error("Failed to load current CRM user.");
+  }
 
-  const { data: authLinkedUser, error: authLinkedError } = await supabase
-    .from("users")
-    .select("id, full_name")
-    .eq("auth_user_id", user.id)
-    .eq("is_active", true)
-    .maybeSingle();
+  const payload = (await response.json().catch(() => null)) as
+    | { id?: string; fullName?: string }
+    | null;
 
-  if (authLinkedError) {
+  if (!payload?.id || typeof payload.id !== "string") {
     return null;
   }
-
-  let data = authLinkedUser;
-
-  if (!data) {
-    const { data: emailMatchedUser, error: emailMatchError } = await supabase
-      .from("users")
-      .select("id, full_name")
-      .eq("email", normalizedEmail)
-      .eq("is_active", true)
-      .maybeSingle();
-
-    if (emailMatchError || !emailMatchedUser) {
-      return null;
-    }
-
-    data = emailMatchedUser;
-  }
-
-  const crmUserId = String(data.id);
-
-  await supabase
-    .from("users")
-    .update({ auth_user_id: user.id })
-    .eq("id", crmUserId)
-    .is("auth_user_id", null);
 
   return {
-    id: crmUserId,
+    id: payload.id,
     full_name:
-      typeof data.full_name === "string" && data.full_name.trim()
-        ? data.full_name
+      typeof payload?.fullName === "string" && payload.fullName.trim()
+        ? payload.fullName
         : "Unknown user",
   };
 }

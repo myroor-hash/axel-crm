@@ -8,6 +8,7 @@ import { NextLeadButton } from "@/components/leads/next-lead-button";
 import { EmailComposePanel } from "@/components/leads/email-compose-panel";
 import {
   fetchCallsTodayCount,
+  fetchCurrentCrmActorName,
   fetchLeadActivities,
   fetchLeadById,
   fetchLeadEmails,
@@ -442,9 +443,17 @@ export default function ProtectedHomePage() {
 
     await refreshQueue(leadId);
     const refreshedActivities = await fetchLeadActivities(leadId);
+    const currentActorName = await fetchCurrentCrmActorName();
+    const mappedActivities = mapDbActivities(refreshedActivities);
+    if (mappedActivities[0] && !mappedActivities[0].actorName && currentActorName) {
+      mappedActivities[0] = {
+        ...mappedActivities[0],
+        actorName: currentActorName,
+      };
+    }
     setActivityMap((prev) => ({
       ...prev,
-      [leadId]: mapDbActivities(refreshedActivities),
+      [leadId]: mappedActivities,
     }));
     const count = await fetchCallsTodayCount();
     setCallsTodayCount(count);
@@ -503,9 +512,17 @@ export default function ProtectedHomePage() {
     await refreshQueue(selectedLeadId);
 
     const refreshedActivities = await fetchLeadActivities(selectedLeadId);
+    const currentActorName = await fetchCurrentCrmActorName();
+    const mappedActivities = mapDbActivities(refreshedActivities);
+    if (mappedActivities[0] && !mappedActivities[0].actorName && currentActorName) {
+      mappedActivities[0] = {
+        ...mappedActivities[0],
+        actorName: currentActorName,
+      };
+    }
     setActivityMap((prev) => ({
       ...prev,
-      [selectedLeadId]: mapDbActivities(refreshedActivities),
+      [selectedLeadId]: mappedActivities,
     }));
 
     const updatedEmails = await fetchLeadEmails(selectedLeadId);
@@ -683,14 +700,7 @@ export default function ProtectedHomePage() {
             onSelectLead={handleSelectLead}
           />
 
-          {panelMode === "email" && selectedLead ? (
-            <EmailComposePanel
-              lead={selectedLead}
-              attachments={attachments}
-              onCancel={() => setPanelMode("lead")}
-              onSend={handlePreparedEmailSend}
-            />
-          ) : (
+          <div className="space-y-6">
             <LeadDetailPanel
               key={selectedLead?.id ?? "no-lead"}
               lead={selectedLead}
@@ -703,7 +713,15 @@ export default function ProtectedHomePage() {
               lastAction={selectedLeadLastAction}
               onOpenPreparedEmail={handleOpenPreparedEmail}
             />
-          )}
+            {panelMode === "email" && selectedLead ? (
+              <EmailComposePanel
+                lead={selectedLead}
+                attachments={attachments}
+                onCancel={() => setPanelMode("lead")}
+                onSend={handlePreparedEmailSend}
+              />
+            ) : null}
+          </div>
         </section>
       </div>
     </main>

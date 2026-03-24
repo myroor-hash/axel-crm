@@ -236,6 +236,11 @@ async function fetchCurrentCrmUser(): Promise<CurrentCrmUser | null> {
   };
 }
 
+export async function fetchCurrentCrmActorName(): Promise<string | null> {
+  const currentUser = await fetchCurrentCrmUser();
+  return currentUser?.full_name ?? null;
+}
+
 function normalizeBusinessName(value: string | null | undefined) {
   return String(value ?? "")
     .toLowerCase()

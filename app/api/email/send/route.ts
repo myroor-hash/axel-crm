@@ -50,6 +50,7 @@ export async function POST(request: Request) {
 
   const payload = (await request.json()) as Partial<SendEmailPayload>;
   const crmUser = await getCurrentCrmUser();
+  const senderName = crmUser?.full_name ?? user.email ?? "Unknown user";
 
   if (!payload.leadId || !payload.to || !payload.subject || !payload.body) {
     return NextResponse.json({ error: "Missing required email fields." }, { status: 400 });
@@ -104,7 +105,7 @@ export async function POST(request: Request) {
     .insert({
       ...baseInsert,
       sent_by_user_id: crmUser?.id ?? null,
-      sent_by_name: crmUser?.full_name ?? user.email ?? "Unknown user",
+      sent_by_name: senderName,
     })
     .select("id")
     .single();
@@ -130,5 +131,6 @@ export async function POST(request: Request) {
   return NextResponse.json({
     emailId: data?.id ?? null,
     providerMessageId: responseData.id,
+    senderName,
   });
 }

@@ -539,7 +539,9 @@ export async function sendLeadEmail(args: {
   body: string;
   attachmentIds: string[];
   attachmentName: string;
-}): Promise<void> {
+}): Promise<{
+  senderName: string | null;
+}> {
   const response = await fetch("/api/email/send", {
     method: "POST",
     headers: {
@@ -549,12 +551,19 @@ export async function sendLeadEmail(args: {
   });
 
   const payload = (await response.json().catch(() => null)) as
-    | { error?: string }
+    | { error?: string; senderName?: string | null }
     | null;
 
   if (!response.ok) {
     throw new Error(payload?.error ?? "Failed to send email.");
   }
+
+  return {
+    senderName:
+      typeof payload?.senderName === "string" && payload.senderName.trim()
+        ? payload.senderName
+        : null,
+  };
 }
 
 export async function fetchCallsTodayCount(): Promise<number> {
@@ -639,6 +648,7 @@ export async function recordLeadActivity(args: {
   activityType: string;
   actionLabel: string;
   noteText?: string;
+  actorName?: string | null;
   callOutcome?: string | null;
   previousStatus?: LeadStatus | null;
   newStatus?: LeadStatus | null;
@@ -649,7 +659,7 @@ export async function recordLeadActivity(args: {
   const baseInsert = {
     lead_id: args.leadId,
     activity_type: args.activityType,
-    actor_name: currentUser?.full_name ?? null,
+    actor_name: args.actorName ?? currentUser?.full_name ?? null,
     action_label: args.actionLabel,
     note_text: args.noteText ?? null,
     call_outcome: args.callOutcome ?? null,
@@ -972,6 +982,7 @@ export async function recordEmailSent(args: {
   leadId: string;
   actionLabel: string;
   noteText?: string;
+  actorName?: string | null;
   previousStatus?: LeadStatus | null;
 }): Promise<{
   status: LeadStatus;
@@ -999,6 +1010,7 @@ export async function recordEmailSent(args: {
     activityType: "email_sent",
     actionLabel: args.actionLabel,
     noteText: args.noteText,
+    actorName: args.actorName ?? null,
     callOutcome: "send_information",
     previousStatus: args.previousStatus ?? null,
     newStatus: status,

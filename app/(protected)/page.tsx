@@ -479,7 +479,7 @@ export default function ProtectedHomePage() {
     const attachmentLabels = selectedAttachments.map((file) => file.label);
     const action = `Email Sent${attachmentLabels.length ? ` — ${attachmentLabels.join(", ")}` : ""}`;
 
-    await sendLeadEmail({
+    const emailSendResult = await sendLeadEmail({
       leadId: selectedLeadId,
       to: selectedLead.email,
       subject: payload.subject,
@@ -492,6 +492,7 @@ export default function ProtectedHomePage() {
       leadId: selectedLeadId,
       actionLabel: action,
       noteText: payload.subject,
+      actorName: emailSendResult.senderName,
       previousStatus: selectedLead?.status ?? null,
     });
 
@@ -513,11 +514,12 @@ export default function ProtectedHomePage() {
 
     const refreshedActivities = await fetchLeadActivities(selectedLeadId);
     const currentActorName = await fetchCurrentCrmActorName();
+    const activityActorName = emailSendResult.senderName ?? currentActorName;
     const mappedActivities = mapDbActivities(refreshedActivities);
-    if (mappedActivities[0] && !mappedActivities[0].actorName && currentActorName) {
+    if (mappedActivities[0] && !mappedActivities[0].actorName && activityActorName) {
       mappedActivities[0] = {
         ...mappedActivities[0],
-        actorName: currentActorName,
+        actorName: activityActorName,
       };
     }
     setActivityMap((prev) => ({

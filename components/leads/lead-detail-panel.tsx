@@ -12,6 +12,7 @@ type Activity = {
   time: string;
   action: string;
   note?: string;
+  actorName?: string;
 };
 
 export function LeadDetailPanel({
@@ -121,6 +122,11 @@ export function LeadDetailPanel({
         <h2 className="text-xl font-semibold text-white">
           {activeLead.shop_name}
         </h2>
+        {activeLead.lead_source_name ? (
+          <p className="mt-2 text-sm font-medium text-slate-200">
+            Source: {activeLead.lead_source_name}
+          </p>
+        ) : null}
 
         {isReadOnly ? (
           <p className="mt-1 text-sm text-slate-200">
@@ -262,6 +268,11 @@ export function LeadDetailPanel({
                     <p className="text-xs text-slate-500">
                       To {email.recipient_email}
                     </p>
+                    {email.sent_by_name ? (
+                      <p className="text-xs text-slate-500">
+                        Sent by {email.sent_by_name}
+                      </p>
+                    ) : null}
                   </div>
 
                   <div className="text-right">
@@ -284,7 +295,7 @@ export function LeadDetailPanel({
 
                 {email.attachment_name ? (
                   <p className="mt-2 text-xs text-slate-600">
-                    Attachment: {email.attachment_name}
+                    Links: {email.attachment_name}
                   </p>
                 ) : null}
               </div>
@@ -405,6 +416,9 @@ export function LeadDetailPanel({
               <div className="font-medium text-slate-900">
                 {a.time} — {a.action}
               </div>
+              {a.actorName ? (
+                <div className="mt-1 text-xs text-slate-500">By {a.actorName}</div>
+              ) : null}
               {a.note ? <div className="mt-1 text-slate-900">{a.note}</div> : null}
             </div>
           ))}

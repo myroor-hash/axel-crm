@@ -6,6 +6,8 @@ create table if not exists lead_emails (
   resend_email_id text unique,
   recipient_email text not null,
   sender_email text not null,
+  sent_by_user_id uuid references users(id),
+  sent_by_name text,
   subject text not null,
   body_text text not null,
   attachment_id text,

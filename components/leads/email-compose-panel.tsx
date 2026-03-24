@@ -34,19 +34,19 @@ export function EmailComposePanel({
   onSend: (payload: {
     subject: string;
     body: string;
-    attachmentId: string;
+    attachmentIds: string[];
   }) => void;
 }) {
   const contactName = useMemo(() => {
     return lead.contact_first_name?.trim() || "there";
   }, [lead.contact_first_name]);
-  const defaultResource = attachments[0] ?? null;
+  const defaultResource = null;
 
   const [subject, setSubject] = useState("Great speaking earlier");
   const [body, setBody] = useState(buildEmailBody(contactName, defaultResource));
 
-  const [attachmentId, setAttachmentId] = useState(
-    attachments[0]?.id ?? ""
+  const [selectedAttachmentIds, setSelectedAttachmentIds] = useState<string[]>(
+    []
   );
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSending, setIsSending] = useState(false);
@@ -56,17 +56,20 @@ export function EmailComposePanel({
     setIsSending(true);
 
     try {
-      const selectedResource =
-        attachments.find((file) => file.id === attachmentId) ?? null;
-      const outgoingBody =
-        selectedResource && !body.includes(selectedResource.url)
-          ? `${body.trim()}\n\nDownload link:\n${selectedResource.url}`
-          : body;
+      const selectedResources = attachments.filter((file) =>
+        selectedAttachmentIds.includes(file.id)
+      );
+      const missingLinks = selectedResources
+        .filter((file) => !body.includes(file.url))
+        .map((file) => `${file.label}\n${file.url}`);
+      const outgoingBody = missingLinks.length
+        ? `${body.trim()}\n\nDownload links:\n${missingLinks.join("\n\n")}`
+        : body;
 
       await onSend({
         subject,
         body: outgoingBody,
-        attachmentId,
+        attachmentIds: selectedAttachmentIds,
       });
     } catch (error) {
       setErrorMessage(
@@ -110,25 +113,37 @@ export function EmailComposePanel({
         </div>
 
         <div>
-          <label className="text-xs uppercase text-slate-500">Email Link</label>
-          <select
-            value={attachmentId}
-            onChange={(e) => setAttachmentId(e.target.value)}
-            className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900"
-          >
-            <option value="">No link</option>
+          <label className="text-xs uppercase text-slate-500">Email Links</label>
+          <div className="mt-2 space-y-2 rounded-xl border border-slate-300 bg-white px-3 py-3">
             {attachments.map((file) => (
-              <option key={file.id} value={file.id}>
-                {file.label}
-              </option>
+              <label
+                key={file.id}
+                className="flex items-start gap-3 text-sm text-slate-900"
+              >
+                <input
+                  type="checkbox"
+                  checked={selectedAttachmentIds.includes(file.id)}
+                  onChange={(e) =>
+                    setSelectedAttachmentIds((prev) =>
+                      e.target.checked
+                        ? [...prev, file.id]
+                        : prev.filter((id) => id !== file.id)
+                    )
+                  }
+                  className="mt-0.5 h-4 w-4 rounded border-slate-300 text-slate-900"
+                />
+                <span>
+                  <span className="font-medium">{file.label}</span>
+                  <span className="mt-0.5 block text-xs text-slate-500">
+                    {file.url}
+                  </span>
+                </span>
+              </label>
             ))}
-          </select>
-          {attachmentId ? (
-            <p className="mt-2 text-xs text-slate-500">
-              Link preview:{" "}
-              {attachments.find((file) => file.id === attachmentId)?.url ?? "—"}
-            </p>
-          ) : null}
+            {attachments.length === 0 ? (
+              <p className="text-sm text-slate-500">No email links available.</p>
+            ) : null}
+          </div>
         </div>
 
         {errorMessage ? (

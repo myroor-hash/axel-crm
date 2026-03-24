@@ -10,6 +10,8 @@ import type { ImportedLeadRow } from "@/features/import/types";
 export type DbActivity = {
   id: string;
   lead_id: string;
+  user_id: string | null;
+  actor_name: string | null;
   activity_type: string;
   action_label: string;
   note_text: string | null;
@@ -43,6 +45,9 @@ type LeadRow = {
   priority_note: string | null;
   imported_at: string | null;
   is_active: boolean | null;
+  lead_sources?: {
+    name?: string | null;
+  } | null;
 };
 
 type QueueLeadRow = Pick<
@@ -157,12 +162,59 @@ function mapLeadDetail(row: LeadRow): LeadDetail {
     address_line_2: row.address_line_2,
     address_line_3: row.address_line_3,
     lead_source_id: row.lead_source_id,
+    lead_source_name:
+      row.lead_sources && typeof row.lead_sources.name === "string"
+        ? row.lead_sources.name
+        : null,
     status: coerceLeadStatus(row.status),
     customer_flag: row.customer_flag ?? false,
     last_contacted_at: row.last_contacted_at,
     next_follow_up_at: row.next_follow_up_at,
     priority_note: row.priority_note,
   };
+}
+
+type CurrentCrmUser = {
+  id: string;
+  full_name: string;
+};
+
+let currentCrmUserPromise: Promise<CurrentCrmUser | null> | null = null;
+
+async function fetchCurrentCrmUser(): Promise<CurrentCrmUser | null> {
+  if (!currentCrmUserPromise) {
+    currentCrmUserPromise = (async () => {
+      const supabase = createBrowserSupabaseClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user?.id) {
+        return null;
+      }
+
+      const { data, error } = await supabase
+        .from("users")
+        .select("id, full_name")
+        .eq("auth_user_id", user.id)
+        .eq("is_active", true)
+        .maybeSingle();
+
+      if (error || !data) {
+        return null;
+      }
+
+      return {
+        id: String(data.id),
+        full_name:
+          typeof data.full_name === "string" && data.full_name.trim()
+            ? data.full_name
+            : "Unknown user",
+      };
+    })();
+  }
+
+  return currentCrmUserPromise;
 }
 
 function normalizeBusinessName(value: string | null | undefined) {
@@ -335,7 +387,7 @@ export async function fetchLeadById(leadId: string): Promise<LeadDetail | null> 
   const { data, error } = await supabase
     .from("leads")
     .select(
-      "id, external_ref, shop_name, contact_name, contact_first_name, contact_last_name, phone_number, email, address_line_1, address_line_2, address_line_3, town_city, county_region, postcode, lead_source_id, status, customer_flag, last_contacted_at, next_follow_up_at, priority_note, imported_at, is_active"
+      "id, external_ref, shop_name, contact_name, contact_first_name, contact_last_name, phone_number, email, address_line_1, address_line_2, address_line_3, town_city, county_region, postcode, lead_source_id, status, customer_flag, last_contacted_at, next_follow_up_at, priority_note, imported_at, is_active, lead_sources(name)"
     )
     .eq("id", leadId)
     .single();
@@ -405,14 +457,28 @@ export async function fetchLeadInvoices(
 export async function fetchLeadEmails(leadId: string): Promise<LeadEmailSummary[]> {
   const supabase = createBrowserSupabaseClient();
 
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from("lead_emails")
     .select(
-      "id, subject, recipient_email, sender_email, attachment_name, sent_at, delivered_at, opened_at, clicked_at, status"
+      "id, subject, recipient_email, sender_email, sent_by_name, attachment_name, sent_at, delivered_at, opened_at, clicked_at, status"
     )
     .eq("lead_id", leadId)
     .order("sent_at", { ascending: false })
     .limit(20);
+
+  if (error && /sent_by_name/i.test(error.message)) {
+    const fallback = await supabase
+      .from("lead_emails")
+      .select(
+        "id, subject, recipient_email, sender_email, attachment_name, sent_at, delivered_at, opened_at, clicked_at, status"
+      )
+      .eq("lead_id", leadId)
+      .order("sent_at", { ascending: false })
+      .limit(20);
+
+    data = fallback.data as typeof data;
+    error = fallback.error;
+  }
 
   if (error) {
     if (error.code === "42P01") {
@@ -422,13 +488,15 @@ export async function fetchLeadEmails(leadId: string): Promise<LeadEmailSummary[
     throw new Error(`Failed to load lead emails: ${error.message}`);
   }
 
-  return (data ?? []).map((row) => ({
+  return ((data ?? []) as Array<Record<string, unknown>>).map((row) => ({
     id: String(row.id),
     subject: typeof row.subject === "string" ? row.subject : "Untitled email",
     recipient_email:
       typeof row.recipient_email === "string" ? row.recipient_email : "Unknown recipient",
     sender_email:
       typeof row.sender_email === "string" ? row.sender_email : "Unknown sender",
+    sent_by_name:
+      typeof row.sent_by_name === "string" ? row.sent_by_name : null,
     attachment_name:
       typeof row.attachment_name === "string" ? row.attachment_name : null,
     sent_at: typeof row.sent_at === "string" ? row.sent_at : new Date().toISOString(),
@@ -445,7 +513,7 @@ export async function sendLeadEmail(args: {
   to: string;
   subject: string;
   body: string;
-  attachmentId: string;
+  attachmentIds: string[];
   attachmentName: string;
 }): Promise<void> {
   const response = await fetch("/api/email/send", {
@@ -492,7 +560,7 @@ export async function fetchLeadActivities(leadId: string): Promise<DbActivity[]>
 
   const { data, error } = await supabase
     .from("lead_activities")
-    .select("id, lead_id, activity_type, action_label, note_text, created_at")
+    .select("id, lead_id, user_id, activity_type, action_label, note_text, created_at, users!lead_activities_user_id_fkey(full_name)")
     .eq("lead_id", leadId)
     .order("created_at", { ascending: false });
 
@@ -500,7 +568,25 @@ export async function fetchLeadActivities(leadId: string): Promise<DbActivity[]>
     throw new Error(`Failed to load activities: ${error.message}`);
   }
 
-  return (data ?? []) as DbActivity[];
+  return ((data ?? []) as Array<Record<string, unknown>>).map((row) => ({
+    id: String(row.id),
+    lead_id: String(row.lead_id),
+    user_id: typeof row.user_id === "string" ? row.user_id : null,
+    actor_name:
+      row.users &&
+      typeof row.users === "object" &&
+      "full_name" in row.users &&
+      typeof row.users.full_name === "string"
+        ? row.users.full_name
+        : null,
+    activity_type:
+      typeof row.activity_type === "string" ? row.activity_type : "note",
+    action_label:
+      typeof row.action_label === "string" ? row.action_label : "Unknown action",
+    note_text: typeof row.note_text === "string" ? row.note_text : null,
+    created_at:
+      typeof row.created_at === "string" ? row.created_at : new Date().toISOString(),
+  }));
 }
 
 export async function recordLeadActivity(args: {
@@ -514,9 +600,15 @@ export async function recordLeadActivity(args: {
   followUpSetFor?: string | null;
 }): Promise<void> {
   const supabase = createBrowserSupabaseClient();
+  const currentUser = await fetchCurrentCrmUser();
+
+  if (!currentUser) {
+    throw new Error("Unable to determine the current CRM user.");
+  }
 
   const { error } = await supabase.from("lead_activities").insert({
     lead_id: args.leadId,
+    user_id: currentUser.id,
     activity_type: args.activityType,
     action_label: args.actionLabel,
     note_text: args.noteText ?? null,

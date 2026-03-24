@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib/auth/session";
+import { getCurrentCrmUser, getCurrentUser } from "@/lib/auth/session";
 import { createAdminSupabaseClient } from "@/lib/db/admin";
 
 type SendEmailPayload = {
@@ -7,7 +7,7 @@ type SendEmailPayload = {
   to: string;
   subject: string;
   body: string;
-  attachmentId: string;
+  attachmentIds: string[];
   attachmentName: string;
 };
 
@@ -38,7 +38,8 @@ export async function POST(request: Request) {
   }
 
   const resendApiKey = process.env.RESEND_API_KEY;
-  const resendFromEmail = process.env.RESEND_FROM_EMAIL;
+  const resendFromEmail =
+    process.env.RESEND_FROM_EMAIL ?? "hello@axelselixir.com";
 
   if (!resendApiKey || !resendFromEmail) {
     return NextResponse.json(
@@ -48,6 +49,7 @@ export async function POST(request: Request) {
   }
 
   const payload = (await request.json()) as Partial<SendEmailPayload>;
+  const crmUser = await getCurrentCrmUser();
 
   if (!payload.leadId || !payload.to || !payload.subject || !payload.body) {
     return NextResponse.json({ error: "Missing required email fields." }, { status: 400 });
@@ -80,23 +82,43 @@ export async function POST(request: Request) {
 
   const supabase = createAdminSupabaseClient();
   const now = new Date().toISOString();
-  const { data, error } = await supabase
+  const baseInsert = {
+    lead_id: payload.leadId,
+    resend_email_id: responseData.id,
+    recipient_email: payload.to,
+    sender_email: resendFromEmail,
+    subject: payload.subject,
+    body_text: payload.body,
+    attachment_id:
+      Array.isArray(payload.attachmentIds) && payload.attachmentIds.length > 0
+        ? payload.attachmentIds.join(", ")
+        : null,
+    attachment_name: payload.attachmentName ?? null,
+    status: "sent",
+    sent_at: now,
+    last_event_at: now,
+  };
+
+  let { data, error } = await supabase
     .from("lead_emails")
     .insert({
-      lead_id: payload.leadId,
-      resend_email_id: responseData.id,
-      recipient_email: payload.to,
-      sender_email: resendFromEmail,
-      subject: payload.subject,
-      body_text: payload.body,
-      attachment_id: payload.attachmentId ?? null,
-      attachment_name: payload.attachmentName ?? null,
-      status: "sent",
-      sent_at: now,
-      last_event_at: now,
+      ...baseInsert,
+      sent_by_user_id: crmUser?.id ?? null,
+      sent_by_name: crmUser?.full_name ?? user.email ?? "Unknown user",
     })
     .select("id")
     .single();
+
+  if (error && /sent_by_(user_id|name)/i.test(error.message)) {
+    const fallbackResult = await supabase
+      .from("lead_emails")
+      .insert(baseInsert)
+      .select("id")
+      .single();
+
+    data = fallbackResult.data;
+    error = fallbackResult.error;
+  }
 
   if (error) {
     return NextResponse.json(

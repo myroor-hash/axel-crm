@@ -34,6 +34,7 @@ type Activity = {
   time: string;
   action: string;
   note?: string;
+  actorName?: string;
 };
 
 type ContactState = {
@@ -53,6 +54,7 @@ function mapDbActivities(rows: DbActivity[]): Activity[] {
     }),
     action: row.action_label,
     note: row.note_text ?? undefined,
+    actorName: row.actor_name ?? undefined,
   }));
 }
 
@@ -404,7 +406,6 @@ export default function ProtectedHomePage() {
     note?: string,
     followUpAt?: string
   ) {
-    const now = new Date();
     const result = await recordCallOutcome({
       leadId,
       actionLabel: action,
@@ -412,20 +413,6 @@ export default function ProtectedHomePage() {
       previousStatus: selectedLead?.status ?? null,
       manualFollowUpAt: followUpAt ?? null,
     });
-
-    const newActivity: Activity = {
-      time: now.toLocaleTimeString("en-GB", {
-        hour: "2-digit",
-        minute: "2-digit",
-      }),
-      action,
-      note: note || undefined,
-    };
-
-    setActivityMap((prev) => ({
-      ...prev,
-      [leadId]: [newActivity, ...(prev[leadId] ?? [])],
-    }));
 
     setLastActionMap((prev) => ({
       ...prev,
@@ -454,6 +441,11 @@ export default function ProtectedHomePage() {
     });
 
     await refreshQueue(leadId);
+    const refreshedActivities = await fetchLeadActivities(leadId);
+    setActivityMap((prev) => ({
+      ...prev,
+      [leadId]: mapDbActivities(refreshedActivities),
+    }));
     const count = await fetchCallsTodayCount();
     setCallsTodayCount(count);
   }
@@ -465,23 +457,26 @@ export default function ProtectedHomePage() {
   async function handlePreparedEmailSend(payload: {
     subject: string;
     body: string;
-    attachmentId: string;
+    attachmentIds: string[];
   }) {
     if (!selectedLeadId) return;
     if (!selectedLead?.email) {
       throw new Error("This lead does not have an email address yet.");
     }
 
-    const attachment = attachments.find((file) => file.id === payload.attachmentId);
-    const action = `Email Sent${attachment ? ` — ${attachment.label}` : ""}`;
+    const selectedAttachments = attachments.filter((file) =>
+      payload.attachmentIds.includes(file.id)
+    );
+    const attachmentLabels = selectedAttachments.map((file) => file.label);
+    const action = `Email Sent${attachmentLabels.length ? ` — ${attachmentLabels.join(", ")}` : ""}`;
 
     await sendLeadEmail({
       leadId: selectedLeadId,
       to: selectedLead.email,
       subject: payload.subject,
       body: payload.body,
-      attachmentId: payload.attachmentId,
-      attachmentName: attachment?.label ?? "",
+      attachmentIds: payload.attachmentIds,
+      attachmentName: attachmentLabels.join(", "),
     });
 
     const result = await recordEmailSent({
@@ -490,21 +485,6 @@ export default function ProtectedHomePage() {
       noteText: payload.subject,
       previousStatus: selectedLead?.status ?? null,
     });
-
-    const now = new Date();
-    const activity: Activity = {
-      time: now.toLocaleTimeString("en-GB", {
-        hour: "2-digit",
-        minute: "2-digit",
-      }),
-      action,
-      note: payload.subject,
-    };
-
-    setActivityMap((prev) => ({
-      ...prev,
-      [selectedLeadId]: [activity, ...(prev[selectedLeadId] ?? [])],
-    }));
 
     setLastActionMap((prev) => ({
       ...prev,
@@ -521,6 +501,12 @@ export default function ProtectedHomePage() {
     }));
 
     await refreshQueue(selectedLeadId);
+
+    const refreshedActivities = await fetchLeadActivities(selectedLeadId);
+    setActivityMap((prev) => ({
+      ...prev,
+      [selectedLeadId]: mapDbActivities(refreshedActivities),
+    }));
 
     const updatedEmails = await fetchLeadEmails(selectedLeadId);
     setEmailMap((prev) => ({

@@ -45,6 +45,7 @@ export interface LeadDetail {
   address_line_2?: string | null;
   address_line_3?: string | null;
   lead_source_id?: string | null;
+  lead_source_name?: string | null;
   status: LeadStatus;
   customer_flag?: boolean;
   last_contacted_at: string | null;
@@ -68,6 +69,7 @@ export interface LeadEmailSummary {
   subject: string;
   recipient_email: string;
   sender_email: string;
+  sent_by_name: string | null;
   attachment_name: string | null;
   sent_at: string;
   delivered_at: string | null;

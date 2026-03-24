@@ -179,69 +179,61 @@ type CurrentCrmUser = {
   full_name: string;
 };
 
-let currentCrmUserPromise: Promise<CurrentCrmUser | null> | null = null;
-
 async function fetchCurrentCrmUser(): Promise<CurrentCrmUser | null> {
-  if (!currentCrmUserPromise) {
-    currentCrmUserPromise = (async () => {
-      const supabase = createBrowserSupabaseClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+  const supabase = createBrowserSupabaseClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-      if (!user?.id || !user.email) {
-        return null;
-      }
-
-      const normalizedEmail = user.email.trim().toLowerCase();
-
-      const { data: authLinkedUser, error: authLinkedError } = await supabase
-        .from("users")
-        .select("id, full_name")
-        .eq("auth_user_id", user.id)
-        .eq("is_active", true)
-        .maybeSingle();
-
-      if (authLinkedError) {
-        return null;
-      }
-
-      let data = authLinkedUser;
-
-      if (!data) {
-        const { data: emailMatchedUser, error: emailMatchError } = await supabase
-          .from("users")
-          .select("id, full_name")
-          .eq("email", normalizedEmail)
-          .eq("is_active", true)
-          .maybeSingle();
-
-        if (emailMatchError || !emailMatchedUser) {
-          return null;
-        }
-
-        data = emailMatchedUser;
-      }
-
-      const crmUserId = String(data.id);
-
-      await supabase
-        .from("users")
-        .update({ auth_user_id: user.id })
-        .eq("id", crmUserId)
-        .is("auth_user_id", null);
-
-      return {
-        id: crmUserId,
-        full_name:
-          typeof data.full_name === "string" && data.full_name.trim()
-            ? data.full_name
-            : "Unknown user",
-      };
-    })();
+  if (!user?.id || !user.email) {
+    return null;
   }
 
-  return currentCrmUserPromise;
+  const normalizedEmail = user.email.trim().toLowerCase();
+
+  const { data: authLinkedUser, error: authLinkedError } = await supabase
+    .from("users")
+    .select("id, full_name")
+    .eq("auth_user_id", user.id)
+    .eq("is_active", true)
+    .maybeSingle();
+
+  if (authLinkedError) {
+    return null;
+  }
+
+  let data = authLinkedUser;
+
+  if (!data) {
+    const { data: emailMatchedUser, error: emailMatchError } = await supabase
+      .from("users")
+      .select("id, full_name")
+      .eq("email", normalizedEmail)
+      .eq("is_active", true)
+      .maybeSingle();
+
+    if (emailMatchError || !emailMatchedUser) {
+      return null;
+    }
+
+    data = emailMatchedUser;
+  }
+
+  const crmUserId = String(data.id);
+
+  await supabase
+    .from("users")
+    .update({ auth_user_id: user.id })
+    .eq("id", crmUserId)
+    .is("auth_user_id", null);
+
+  return {
+    id: crmUserId,
+    full_name:
+      typeof data.full_name === "string" && data.full_name.trim()
+        ? data.full_name
+        : "Unknown user",
+  };
 }
 
 function normalizeBusinessName(value: string | null | undefined) {

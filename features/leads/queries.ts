@@ -189,14 +189,16 @@ async function fetchCurrentCrmUser(): Promise<CurrentCrmUser | null> {
         data: { user },
       } = await supabase.auth.getUser();
 
-      if (!user?.id) {
+      if (!user?.id || !user.email) {
         return null;
       }
+
+      const normalizedEmail = user.email.trim().toLowerCase();
 
       const { data, error } = await supabase
         .from("users")
         .select("id, full_name")
-        .eq("auth_user_id", user.id)
+        .or(`auth_user_id.eq.${user.id},email.eq.${normalizedEmail}`)
         .eq("is_active", true)
         .maybeSingle();
 
@@ -204,8 +206,16 @@ async function fetchCurrentCrmUser(): Promise<CurrentCrmUser | null> {
         return null;
       }
 
+      const crmUserId = String(data.id);
+
+      await supabase
+        .from("users")
+        .update({ auth_user_id: user.id })
+        .eq("id", crmUserId)
+        .is("auth_user_id", null);
+
       return {
-        id: String(data.id),
+        id: crmUserId,
         full_name:
           typeof data.full_name === "string" && data.full_name.trim()
             ? data.full_name

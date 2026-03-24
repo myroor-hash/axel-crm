@@ -461,6 +461,7 @@ export default function ProtectedHomePage() {
 
   function handleOpenPreparedEmail() {
     setPanelMode("email");
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   async function handlePreparedEmailSend(payload: {

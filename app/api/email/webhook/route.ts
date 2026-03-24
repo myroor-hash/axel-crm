@@ -71,7 +71,7 @@ export async function POST(request: Request) {
       last_event_at: eventTime,
     })
     .eq("resend_email_id", providerMessageId)
-    .select("lead_id")
+    .select("lead_id, sent_by_user_id")
     .maybeSingle();
 
   if (error) {
@@ -117,19 +117,22 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: leadUpdateError.message }, { status: 500 });
     }
 
-    const { error: activityError } = await supabase.from("lead_activities").insert({
-      lead_id: updatedEmail.lead_id,
-      activity_type: "email_clicked",
-      action_label: "Email Link Clicked",
-      note_text: "Follow up within 24 hours of click.",
-      call_outcome: null,
-      previous_status: leadRow?.status ?? null,
-      new_status: nextStatus,
-      follow_up_set_for: nextFollowUpAt,
-    });
+    if (updatedEmail.sent_by_user_id) {
+      const { error: activityError } = await supabase.from("lead_activities").insert({
+        lead_id: updatedEmail.lead_id,
+        user_id: updatedEmail.sent_by_user_id,
+        activity_type: "status_changed",
+        action_label: "Email Link Clicked",
+        note_text: "Follow up within 24 hours of click.",
+        call_outcome: null,
+        previous_status: leadRow?.status ?? null,
+        new_status: nextStatus,
+        follow_up_set_for: nextFollowUpAt,
+      });
 
-    if (activityError) {
-      return NextResponse.json({ error: activityError.message }, { status: 500 });
+      if (activityError) {
+        return NextResponse.json({ error: activityError.message }, { status: 500 });
+      }
     }
   }
 

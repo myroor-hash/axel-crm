@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import type {
   InvoiceSummary,
   LeadDetail,
@@ -25,6 +25,7 @@ export function LeadDetailPanel({
   emails,
   lastAction,
   onOpenPreparedEmail,
+  emailComposer,
 }: {
   lead: LeadDetail | null;
   readOnlyState: LeadReadOnlyState | null;
@@ -40,6 +41,7 @@ export function LeadDetailPanel({
   emails: LeadEmailSummary[];
   lastAction: string | null;
   onOpenPreparedEmail: (leadId: string) => void;
+  emailComposer?: ReactNode;
 }) {
   const [note, setNote] = useState("");
   const [manualFollowUpAt, setManualFollowUpAt] = useState("");
@@ -136,6 +138,8 @@ export function LeadDetailPanel({
           </p>
         ) : null}
       </div>
+
+      {emailComposer ? <div className="mt-6">{emailComposer}</div> : null}
 
       <div className="mt-6 space-y-4 text-sm text-slate-700">
         <div>

@@ -27,6 +27,7 @@ export function EmailComposePanel({
   attachments,
   onCancel,
   onSend,
+  embedded = false,
 }: {
   lead: LeadDetail;
   attachments: AttachmentOption[];
@@ -36,6 +37,7 @@ export function EmailComposePanel({
     body: string;
     attachmentIds: string[];
   }) => void;
+  embedded?: boolean;
 }) {
   const contactName = useMemo(() => {
     return lead.contact_first_name?.trim() || "there";
@@ -50,6 +52,10 @@ export function EmailComposePanel({
   );
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSending, setIsSending] = useState(false);
+
+  const wrapperClass = embedded
+    ? "rounded-xl border border-slate-200 bg-slate-50 p-4"
+    : "rounded-2xl border border-slate-200 bg-white p-6 shadow-sm";
 
   async function handleSend() {
     setErrorMessage(null);
@@ -81,13 +87,16 @@ export function EmailComposePanel({
   }
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+    <div className={wrapperClass}>
       <div className="border-b border-slate-100 pb-4">
         <h2 className="text-xl font-semibold text-slate-900">
           Prepared Email
         </h2>
         <p className="mt-1 text-sm text-slate-600">
           Review the message, choose the email link, then send.
+        </p>
+        <p className="mt-2 text-sm font-medium text-slate-800">
+          To: <span className="font-semibold">{lead.email ?? "No email set"}</span>
         </p>
       </div>
 

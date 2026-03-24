@@ -712,15 +712,18 @@ export default function ProtectedHomePage() {
               emails={selectedLeadEmails}
               lastAction={selectedLeadLastAction}
               onOpenPreparedEmail={handleOpenPreparedEmail}
+              emailComposer={
+                panelMode === "email" && selectedLead ? (
+                  <EmailComposePanel
+                    lead={selectedLead}
+                    attachments={attachments}
+                    onCancel={() => setPanelMode("lead")}
+                    onSend={handlePreparedEmailSend}
+                    embedded
+                  />
+                ) : null
+              }
             />
-            {panelMode === "email" && selectedLead ? (
-              <EmailComposePanel
-                lead={selectedLead}
-                attachments={attachments}
-                onCancel={() => setPanelMode("lead")}
-                onSend={handlePreparedEmailSend}
-              />
-            ) : null}
           </div>
         </section>
       </div>

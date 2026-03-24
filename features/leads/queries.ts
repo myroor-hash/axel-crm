@@ -587,7 +587,7 @@ export async function fetchLeadActivities(leadId: string): Promise<DbActivity[]>
 
   const { data, error } = await supabase
     .from("lead_activities")
-    .select("id, lead_id, user_id, activity_type, action_label, note_text, created_at, users!lead_activities_user_id_fkey(full_name)")
+    .select("id, lead_id, user_id, activity_type, action_label, note_text, created_at")
     .eq("lead_id", leadId)
     .order("created_at", { ascending: false });
 
@@ -595,17 +595,34 @@ export async function fetchLeadActivities(leadId: string): Promise<DbActivity[]>
     throw new Error(`Failed to load activities: ${error.message}`);
   }
 
-  return ((data ?? []) as Array<Record<string, unknown>>).map((row) => ({
+  const activityRows = (data ?? []) as Array<Record<string, unknown>>;
+  const userIds = [...new Set(
+    activityRows
+      .map((row) => (typeof row.user_id === "string" ? row.user_id : null))
+      .filter((value): value is string => Boolean(value))
+  )];
+
+  const { data: users, error: usersError } = userIds.length
+    ? await supabase.from("users").select("id, full_name").in("id", userIds)
+    : { data: [] as Array<{ id: string; full_name: string }>, error: null };
+
+  if (usersError) {
+    throw new Error(`Failed to load activity users: ${usersError.message}`);
+  }
+
+  const userMap = new Map(
+    (users ?? []).map((user) => [
+      String(user.id),
+      typeof user.full_name === "string" ? user.full_name : null,
+    ])
+  );
+
+  return activityRows.map((row) => ({
     id: String(row.id),
     lead_id: String(row.lead_id),
     user_id: typeof row.user_id === "string" ? row.user_id : null,
     actor_name:
-      row.users &&
-      typeof row.users === "object" &&
-      "full_name" in row.users &&
-      typeof row.users.full_name === "string"
-        ? row.users.full_name
-        : null,
+      typeof row.user_id === "string" ? userMap.get(row.user_id) ?? null : null,
     activity_type:
       typeof row.activity_type === "string" ? row.activity_type : "note",
     action_label:

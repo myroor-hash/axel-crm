@@ -31,7 +31,10 @@ export default async function AdminUsersPage() {
           actions={<LogoutButton />}
         />
 
-        <UserManager initialUsers={(data ?? []) as never[]} />
+        <UserManager
+          initialUsers={(data ?? []) as never[]}
+          currentUserId={currentCrmUser.id}
+        />
       </div>
     </main>
   );

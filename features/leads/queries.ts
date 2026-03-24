@@ -628,14 +628,8 @@ export async function recordLeadActivity(args: {
 }): Promise<void> {
   const supabase = createBrowserSupabaseClient();
   const currentUser = await fetchCurrentCrmUser();
-
-  if (!currentUser) {
-    throw new Error("Unable to determine the current CRM user.");
-  }
-
-  const { error } = await supabase.from("lead_activities").insert({
+  const baseInsert = {
     lead_id: args.leadId,
-    user_id: currentUser.id,
     activity_type: args.activityType,
     action_label: args.actionLabel,
     note_text: args.noteText ?? null,
@@ -643,7 +637,21 @@ export async function recordLeadActivity(args: {
     previous_status: args.previousStatus ?? null,
     new_status: args.newStatus ?? null,
     follow_up_set_for: args.followUpSetFor ?? null,
-  });
+  };
+
+  let { error } = await supabase.from("lead_activities").insert(
+    currentUser
+      ? {
+          ...baseInsert,
+          user_id: currentUser.id,
+        }
+      : baseInsert
+  );
+
+  if (error && currentUser && /user_id/i.test(error.message)) {
+    const fallback = await supabase.from("lead_activities").insert(baseInsert);
+    error = fallback.error;
+  }
 
   if (error) {
     throw new Error(`Failed to record activity: ${error.message}`);

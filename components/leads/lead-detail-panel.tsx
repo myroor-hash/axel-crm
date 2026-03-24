@@ -67,6 +67,11 @@ export function LeadDetailPanel({
   async function handleOutcome(action: string) {
     if (isReadOnly) return;
 
+    if (action === "Send Info") {
+      onOpenPreparedEmail(activeLead.id);
+      return;
+    }
+
     const scheduledFollowUpAt = manualFollowUpAt
       ? new Date(manualFollowUpAt).toISOString()
       : undefined;
@@ -77,11 +82,6 @@ export function LeadDetailPanel({
       note || undefined,
       scheduledFollowUpAt
     );
-
-    if (action === "Send Info") {
-      onOpenPreparedEmail(activeLead.id);
-      return;
-    }
 
     setNote("");
     setManualFollowUpAt("");

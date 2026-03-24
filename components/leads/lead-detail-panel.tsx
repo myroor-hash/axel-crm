@@ -44,6 +44,7 @@ export function LeadDetailPanel({
   const [note, setNote] = useState("");
   const [manualFollowUpAt, setManualFollowUpAt] = useState("");
   const [showAllEmails, setShowAllEmails] = useState(false);
+  const [showAllActivities, setShowAllActivities] = useState(false);
 
   if (!lead) {
     return (
@@ -56,6 +57,7 @@ export function LeadDetailPanel({
   const activeLead = lead;
   const isReadOnly = readOnlyState?.isReadOnly ?? false;
   const visibleEmails = showAllEmails ? emails : emails.slice(0, 1);
+  const visibleActivities = showAllActivities ? activities : activities.slice(0, 2);
   const sectionHeaderClass =
     "mb-4 rounded-xl bg-slate-950 px-4 py-3 text-xs font-semibold uppercase tracking-[0.18em] text-white";
 
@@ -401,14 +403,29 @@ export function LeadDetailPanel({
       </div>
 
       <div className="mt-6 border-t pt-6">
-        <p className="text-xs uppercase text-slate-500">Activity Timeline</p>
+        <div className={sectionHeaderClass}>Activity Timeline</div>
+
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-xs text-slate-500">
+            {activities.length} recent activit{activities.length === 1 ? "y" : "ies"}
+          </span>
+          {activities.length > 2 ? (
+            <button
+              type="button"
+              onClick={() => setShowAllActivities((prev) => !prev)}
+              className="text-xs font-medium text-slate-600 transition hover:text-slate-900"
+            >
+              {showAllActivities ? "Hide ▲" : "Show All ▼"}
+            </button>
+          ) : null}
+        </div>
 
         <div className="mt-3 space-y-3">
           {activities.length === 0 && (
             <p className="text-sm text-slate-500">No activity yet.</p>
           )}
 
-          {activities.map((a, i) => (
+          {visibleActivities.map((a, i) => (
             <div
               key={i}
               className="rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-900"

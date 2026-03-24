@@ -579,7 +579,7 @@ export async function fetchLeadActivities(leadId: string): Promise<DbActivity[]>
 
   const { data, error } = await supabase
     .from("lead_activities")
-    .select("id, lead_id, user_id, activity_type, action_label, note_text, created_at")
+    .select("id, lead_id, user_id, actor_name, activity_type, action_label, note_text, created_at")
     .eq("lead_id", leadId)
     .order("created_at", { ascending: false });
 
@@ -614,7 +614,11 @@ export async function fetchLeadActivities(leadId: string): Promise<DbActivity[]>
     lead_id: String(row.lead_id),
     user_id: typeof row.user_id === "string" ? row.user_id : null,
     actor_name:
-      typeof row.user_id === "string" ? userMap.get(row.user_id) ?? null : null,
+      typeof row.actor_name === "string" && row.actor_name.trim()
+        ? row.actor_name
+        : typeof row.user_id === "string"
+          ? userMap.get(row.user_id) ?? null
+          : null,
     activity_type:
       typeof row.activity_type === "string" ? row.activity_type : "note",
     action_label:
@@ -640,6 +644,7 @@ export async function recordLeadActivity(args: {
   const baseInsert = {
     lead_id: args.leadId,
     activity_type: args.activityType,
+    actor_name: currentUser?.full_name ?? null,
     action_label: args.actionLabel,
     note_text: args.noteText ?? null,
     call_outcome: args.callOutcome ?? null,

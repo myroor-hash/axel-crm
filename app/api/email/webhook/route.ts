@@ -71,7 +71,7 @@ export async function POST(request: Request) {
       last_event_at: eventTime,
     })
     .eq("resend_email_id", providerMessageId)
-    .select("lead_id, sent_by_user_id")
+    .select("lead_id, sent_by_user_id, sent_by_name")
     .maybeSingle();
 
   if (error) {
@@ -121,6 +121,7 @@ export async function POST(request: Request) {
       const { error: activityError } = await supabase.from("lead_activities").insert({
         lead_id: updatedEmail.lead_id,
         user_id: updatedEmail.sent_by_user_id,
+        actor_name: updatedEmail.sent_by_name ?? null,
         activity_type: "status_changed",
         action_label: "Email Link Clicked",
         note_text: "Follow up within 24 hours of click.",

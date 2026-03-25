@@ -3,6 +3,16 @@ import { getCurrentCrmUser } from "@/lib/auth/session";
 import { createAdminSupabaseClient } from "@/lib/db/admin";
 import type { ImportedInvoiceRow } from "@/features/invoices/types";
 
+function normalizeBusinessName(value: string | null | undefined) {
+  return String(value ?? "")
+    .toLowerCase()
+    .replace(/&/g, " and ")
+    .replace(/\b(ltd|limited|llp|co|company|inc|uk)\b/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()
+    .replace(/\s+/g, " ");
+}
+
 export async function POST(request: Request) {
   const crmUser = await getCurrentCrmUser();
 
@@ -23,6 +33,18 @@ export async function POST(request: Request) {
   }
 
   const supabase = createAdminSupabaseClient();
+  const { data: leads, error: leadsError } = await supabase
+    .from("leads")
+    .select("shop_name, external_ref")
+    .or("is_active.is.null,is_active.eq.true");
+
+  if (leadsError) {
+    return NextResponse.json(
+      { error: `Failed to load leads for invoice matching: ${leadsError.message}` },
+      { status: 500 }
+    );
+  }
+
   const { data: existingRows, error: existingError } = await supabase
     .from("invoices")
     .select("invoice_ref");
@@ -53,12 +75,26 @@ export async function POST(request: Request) {
       )
       .filter((value): value is string => Boolean(value))
   );
+  const leadRefByName = new Map<string, string>();
+
+  for (const lead of leads ?? []) {
+    const shopName =
+      typeof lead.shop_name === "string" ? lead.shop_name : null;
+    const externalRef =
+      typeof lead.external_ref === "string" ? lead.external_ref : null;
+    const normalizedName = normalizeBusinessName(shopName);
+
+    if (normalizedName && externalRef) {
+      leadRefByName.set(normalizedName, externalRef);
+    }
+  }
 
   let skipped = 0;
   const inserts: Array<Record<string, string | null>> = [];
 
   for (const row of rows) {
     const normalizedRef = row.invoice_ref.trim().toLowerCase();
+    const normalizedCustomerName = normalizeBusinessName(row.customer_name);
 
     if (seenInvoiceRefs.has(normalizedRef)) {
       skipped += 1;
@@ -70,7 +106,7 @@ export async function POST(request: Request) {
       invoice_date: row.invoice_date,
       invoice_type: row.invoice_type,
       customer_name: row.customer_name,
-      customer_ref: null,
+      customer_ref: leadRefByName.get(normalizedCustomerName) ?? null,
       description: row.description,
       total_amount: row.total_amount,
       status: row.status,

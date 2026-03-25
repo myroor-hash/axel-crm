@@ -406,13 +406,50 @@ export async function fetchLeadInvoices(
   const supabase = createBrowserSupabaseClient();
   const customerRef = lead.customer_number ?? lead.external_ref ?? null;
 
+  if (customerRef) {
+    const { data, error } = await supabase
+      .from("invoices")
+      .select(
+        "id, invoice_ref, invoice_date, customer_name, customer_ref, total_amount, status, sent_status, description"
+      )
+      .eq("customer_ref", customerRef)
+      .order("invoice_date", { ascending: false })
+      .limit(10);
+
+    if (error) {
+      if (error.code === "42P01") {
+        return [];
+      }
+
+      throw new Error(`Failed to load invoices: ${error.message}`);
+    }
+
+    if ((data ?? []).length > 0) {
+      return (data ?? []).map((row) => ({
+        id: String(row.id),
+        invoice_ref:
+          typeof row.invoice_ref === "string" ? row.invoice_ref : "Unknown invoice",
+        invoice_date:
+          typeof row.invoice_date === "string" ? row.invoice_date : null,
+        customer_name:
+          typeof row.customer_name === "string" ? row.customer_name : null,
+        total_amount:
+          typeof row.total_amount === "string" ? row.total_amount : null,
+        status: typeof row.status === "string" ? row.status : null,
+        sent_status:
+          typeof row.sent_status === "string" ? row.sent_status : null,
+        description:
+          typeof row.description === "string" ? row.description : null,
+      }));
+    }
+  }
+
   const { data, error } = await supabase
     .from("invoices")
     .select(
       "id, invoice_ref, invoice_date, customer_name, customer_ref, total_amount, status, sent_status, description"
     )
-    .order("invoice_date", { ascending: false })
-    .limit(25);
+    .order("invoice_date", { ascending: false });
 
   if (error) {
     if (error.code === "42P01") {
@@ -423,18 +460,12 @@ export async function fetchLeadInvoices(
   }
 
   return (data ?? [])
-    .filter((row) => {
-      const rowCustomerRef =
-        typeof row.customer_ref === "string" ? row.customer_ref : null;
-      const rowCustomerName =
-        typeof row.customer_name === "string" ? row.customer_name : null;
-
-      if (customerRef && rowCustomerRef === customerRef) {
-        return true;
-      }
-
-      return businessNamesMatch(rowCustomerName, lead.shop_name);
-    })
+    .filter((row) =>
+      businessNamesMatch(
+        typeof row.customer_name === "string" ? row.customer_name : null,
+        lead.shop_name
+      )
+    )
     .slice(0, 10)
     .map((row) => ({
       id: String(row.id),

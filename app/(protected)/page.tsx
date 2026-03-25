@@ -45,7 +45,7 @@ type ContactState = {
 };
 
 type PanelMode = "lead" | "email";
-type QueueTab = "existing" | "chasing" | "new_leads";
+type QueueTab = "existing" | "follow_up" | "new_leads";
 
 function mapDbActivities(rows: DbActivity[]): Activity[] {
   return rows.map((row) => ({
@@ -62,15 +62,16 @@ function mapDbActivities(rows: DbActivity[]): Activity[] {
 function matchesQueueTab(
   lead: LeadQueueItem & {
     computed_has_contact_history?: boolean;
+    computed_follow_up_at?: string | null;
   },
   tab: QueueTab
 ) {
-  if (lead.has_invoice_history) {
-    return tab === "existing";
+  if (lead.computed_follow_up_at) {
+    return tab === "follow_up";
   }
 
-  if (lead.computed_has_contact_history) {
-    return tab === "chasing";
+  if (lead.has_invoice_history) {
+    return tab === "existing";
   }
 
   return tab === "new_leads";
@@ -221,15 +222,8 @@ export default function ProtectedHomePage() {
 
       const followUpDue =
         Boolean(followUpAt) && new Date(followUpAt as string).getTime() <= now.getTime();
-      const clickedRecently =
-        Boolean(lead.recent_email_clicked_at) &&
-        now.getTime() - new Date(lead.recent_email_clicked_at as string).getTime() <=
-          24 * 60 * 60 * 1000;
-
       let statusBadge = "Not Contacted";
-      if (clickedRecently) {
-        statusBadge = "Clicked Info";
-      } else if (contactState?.statusLabel) {
+      if (contactState?.statusLabel) {
         statusBadge = contactState.statusLabel;
       } else if (followUpDue) {
         statusBadge = "Follow Up Due";
@@ -239,15 +233,6 @@ export default function ProtectedHomePage() {
         statusBadge = "Contacted";
       }
 
-      const neverContacted = !hasContactHistory;
-      const followUpScheduled = Boolean(followUpAt) && !followUpDue;
-
-      let priority = 4;
-      if (clickedRecently) priority = 0;
-      else if (followUpDue) priority = 1;
-      else if (followUpScheduled) priority = 2;
-      else if (neverContacted) priority = 3;
-
       return {
         ...lead,
         computed_has_contact_history: hasContactHistory,
@@ -255,48 +240,49 @@ export default function ProtectedHomePage() {
         computed_follow_up_at: followUpAt,
         computed_follow_up_due: followUpDue,
         computed_status_badge: statusBadge,
-        computed_priority: priority,
       };
     }
 
     return [...baseQueue]
       .map(enrichLead)
       .sort((a, b) => {
-        if (a.computed_priority !== b.computed_priority) {
-          return a.computed_priority - b.computed_priority;
-        }
+        const aIsFollowUp = Boolean(a.computed_follow_up_at);
+        const bIsFollowUp = Boolean(b.computed_follow_up_at);
 
-        if (a.computed_priority === 0) {
-          const aTime = a.recent_email_clicked_at
-            ? new Date(a.recent_email_clicked_at).getTime()
-            : 0;
-          const bTime = b.recent_email_clicked_at
-            ? new Date(b.recent_email_clicked_at).getTime()
-            : 0;
-          return bTime - aTime;
-        }
-
-        if (a.computed_priority === 1) {
-          const aTime = a.computed_follow_up_at ? new Date(a.computed_follow_up_at).getTime() : Infinity;
-          const bTime = b.computed_follow_up_at ? new Date(b.computed_follow_up_at).getTime() : Infinity;
+        if (aIsFollowUp && bIsFollowUp) {
+          const aTime = a.computed_follow_up_at
+            ? new Date(a.computed_follow_up_at).getTime()
+            : Number.POSITIVE_INFINITY;
+          const bTime = b.computed_follow_up_at
+            ? new Date(b.computed_follow_up_at).getTime()
+            : Number.POSITIVE_INFINITY;
           return aTime - bTime;
         }
 
-        if (a.computed_priority === 2) {
-          const aTime = a.computed_follow_up_at ? new Date(a.computed_follow_up_at).getTime() : Infinity;
-          const bTime = b.computed_follow_up_at ? new Date(b.computed_follow_up_at).getTime() : Infinity;
-          return aTime - bTime;
+        if (a.has_invoice_history !== b.has_invoice_history) {
+          return a.has_invoice_history ? -1 : 1;
         }
 
-        if (a.computed_priority === 3) {
+        if (!a.has_invoice_history && !b.has_invoice_history) {
           const aTime = a.created_at ? new Date(a.created_at).getTime() : 0;
           const bTime = b.created_at ? new Date(b.created_at).getTime() : 0;
-          return bTime - aTime;
+          if (aTime !== bTime) {
+            return bTime - aTime;
+          }
         }
 
-        const aTime = a.last_contacted_at ? new Date(a.last_contacted_at).getTime() : 0;
-        const bTime = b.last_contacted_at ? new Date(b.last_contacted_at).getTime() : 0;
-        return aTime - bTime;
+        const aTime = a.last_contacted_at
+          ? new Date(a.last_contacted_at).getTime()
+          : 0;
+        const bTime = b.last_contacted_at
+          ? new Date(b.last_contacted_at).getTime()
+          : 0;
+
+        if (aTime !== bTime) {
+          return aTime - bTime;
+        }
+
+        return a.shop_name.localeCompare(b.shop_name, "en-GB");
       });
   }, [baseQueue, contactStateMap]);
 
@@ -326,6 +312,18 @@ export default function ProtectedHomePage() {
   }, [tabQueue, searchTerm]);
 
   const visibleQueue = useMemo(() => filteredQueue.slice(0, 20), [filteredQueue]);
+  const existingQueueCount = useMemo(
+    () => queue.filter((lead) => matchesQueueTab(lead, "existing")).length,
+    [queue]
+  );
+  const followUpQueueCount = useMemo(
+    () => queue.filter((lead) => matchesQueueTab(lead, "follow_up")).length,
+    [queue]
+  );
+  const newLeadsQueueCount = useMemo(
+    () => queue.filter((lead) => matchesQueueTab(lead, "new_leads")).length,
+    [queue]
+  );
 
   const nextAvailableLeadId = useMemo(() => {
     if (tabQueue.length === 0) return null;
@@ -635,9 +633,9 @@ export default function ProtectedHomePage() {
           <div className="text-center text-sm text-slate-600">
             {queueTab === "existing"
               ? "Existing Customers"
-              : queueTab === "chasing"
-                ? "Chasing"
-                : "New Leads"}{" "}
+              : queueTab === "follow_up"
+                ? "Follow Up"
+                : "New Leads (No Sales)"}{" "}
             :{" "}
             <span className="text-base font-semibold text-slate-900">
               {filteredQueue.length}
@@ -668,18 +666,18 @@ export default function ProtectedHomePage() {
                   : "border border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
               }`}
             >
-              Existing Customers ({queue.filter((lead) => lead.has_invoice_history).length})
+              Existing Customers ({existingQueueCount})
             </button>
             <button
               type="button"
-              onClick={() => handleSelectQueueTab("chasing")}
+              onClick={() => handleSelectQueueTab("follow_up")}
               className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
-                queueTab === "chasing"
+                queueTab === "follow_up"
                   ? "bg-slate-900 text-white"
                   : "border border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
               }`}
             >
-              Chasing ({queue.filter((lead) => !lead.has_invoice_history && lead.computed_has_contact_history).length})
+              Follow Up ({followUpQueueCount})
             </button>
             <button
               type="button"
@@ -690,7 +688,7 @@ export default function ProtectedHomePage() {
                   : "border border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
               }`}
             >
-              New Leads ({queue.filter((lead) => !lead.has_invoice_history && !lead.computed_has_contact_history).length})
+              New Leads (No Sales) ({newLeadsQueueCount})
             </button>
           </div>
           <NextLeadButton onClick={handleCallNextLead} />

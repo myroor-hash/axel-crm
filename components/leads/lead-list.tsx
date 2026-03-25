@@ -50,7 +50,7 @@ export function LeadList({
           Call Queue
         </h2>
         <p className="mt-1 text-sm text-slate-200">
-          Follow-ups first, then untouched leads, then oldest contacted leads.
+          Existing customers, scheduled follow-ups, and new leads without sales.
         </p>
       </div>
 

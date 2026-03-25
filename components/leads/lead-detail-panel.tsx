@@ -18,7 +18,6 @@ type Activity = {
 export function LeadDetailPanel({
   lead,
   readOnlyState,
-  onAdvanceLead,
   onRecordActivity,
   activities,
   invoices,
@@ -29,7 +28,6 @@ export function LeadDetailPanel({
 }: {
   lead: LeadDetail | null;
   readOnlyState: LeadReadOnlyState | null;
-  onAdvanceLead: () => void;
   onRecordActivity: (
     leadId: string,
     action: string,
@@ -93,10 +91,6 @@ export function LeadDetailPanel({
     if (scheduledFollowUpAt) {
       return;
     }
-
-    setTimeout(() => {
-      onAdvanceLead();
-    }, 250);
   }
 
   function outcomeButtonClass(action: string) {

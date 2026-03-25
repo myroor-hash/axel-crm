@@ -427,10 +427,6 @@ export default function ProtectedHomePage() {
     }));
 
     setPanelMode("lead");
-
-    setTimeout(() => {
-      handleAdvanceLead();
-    }, 250);
   }
 
   function handleCallNextLead() {
@@ -600,7 +596,6 @@ export default function ProtectedHomePage() {
               key={selectedLead?.id ?? "no-lead"}
               lead={selectedLead}
               readOnlyState={readOnlyState}
-              onAdvanceLead={handleAdvanceLead}
               onRecordActivity={handleRecordActivity}
               activities={selectedLeadActivities}
               invoices={selectedLeadInvoices}

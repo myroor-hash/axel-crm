@@ -220,8 +220,11 @@ export async function fetchCurrentCrmActorName(): Promise<string | null> {
 function normalizeBusinessName(value: string | null | undefined) {
   return String(value ?? "")
     .toLowerCase()
-    .replace(/\b(limited|ltd|llp|limited liability partnership|co|company)\b/g, "")
-    .replace(/[^a-z0-9]/g, "");
+    .replace(/&/g, " and ")
+    .replace(/\b(limited|ltd|llp|limited liability partnership|co|company|inc|uk)\b/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()
+    .replace(/\s+/g, "");
 }
 
 function businessNamesMatch(left: string | null | undefined, right: string | null | undefined) {
@@ -337,6 +340,24 @@ export async function fetchLeadQueue(): Promise<LeadQueueItem[]> {
   }
 
   const invoiceRows = (invoices ?? []) as QueueInvoiceRow[];
+  const invoiceRefSet = new Set(
+    invoiceRows
+      .map((invoice) =>
+        typeof invoice.customer_ref === "string"
+          ? invoice.customer_ref.trim().toLowerCase()
+          : null
+      )
+      .filter((value): value is string => Boolean(value))
+  );
+  const invoiceNameSet = new Set(
+    invoiceRows
+      .map((invoice) =>
+        typeof invoice.customer_name === "string"
+          ? normalizeBusinessName(invoice.customer_name)
+          : null
+      )
+      .filter((value): value is string => Boolean(value))
+  );
   const latestClickMap = new Map<string, string>();
   for (const email of (leadEmails ?? []) as QueueEmailRow[]) {
     if (email.clicked_at && !latestClickMap.has(email.lead_id)) {
@@ -353,22 +374,28 @@ export async function fetchLeadQueue(): Promise<LeadQueueItem[]> {
     contact_name: buildContactName(lead),
     phone_number: lead.phone_number ?? null,
     postcode: lead.postcode ?? null,
-    has_invoice_history: invoiceRows.some((invoice) => {
-      const invoiceCustomerRef =
-        typeof invoice.customer_ref === "string" ? invoice.customer_ref : null;
-      const invoiceCustomerName =
-        typeof invoice.customer_name === "string" ? invoice.customer_name : null;
+    has_invoice_history: (() => {
       const leadCustomerRef =
         "external_ref" in lead && typeof lead.external_ref === "string"
-          ? lead.external_ref
+          ? lead.external_ref.trim().toLowerCase()
           : null;
+      const normalizedLeadName = normalizeBusinessName(lead.shop_name);
 
-      if (leadCustomerRef && invoiceCustomerRef === leadCustomerRef) {
+      if (leadCustomerRef && invoiceRefSet.has(leadCustomerRef)) {
         return true;
       }
 
-      return businessNamesMatch(invoiceCustomerName, lead.shop_name);
-    }),
+      if (normalizedLeadName && invoiceNameSet.has(normalizedLeadName)) {
+        return true;
+      }
+
+      return invoiceRows.some((invoice) =>
+        businessNamesMatch(
+          typeof invoice.customer_name === "string" ? invoice.customer_name : null,
+          lead.shop_name
+        )
+      );
+    })(),
     status: coerceLeadStatus(lead.status),
     last_outcome: lead.last_outcome ?? null,
     last_contacted_at: lead.last_contacted_at ?? null,

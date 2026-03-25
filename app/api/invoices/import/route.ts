@@ -81,7 +81,12 @@ export async function POST(request: Request) {
   }
 
   if (inserts.length > 0) {
-    const { error: insertError } = await supabase.from("invoices").insert(inserts);
+    const { error: insertError } = await supabase
+      .from("invoices")
+      .upsert(inserts, {
+        onConflict: "invoice_ref",
+        ignoreDuplicates: true,
+      });
 
     if (insertError) {
       return NextResponse.json(

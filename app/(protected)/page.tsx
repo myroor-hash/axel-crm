@@ -74,7 +74,7 @@ function matchesQueueTab(
     return tab === "existing";
   }
 
-  return tab === "new_leads";
+  return tab === "new_leads" && !lead.computed_has_contact_history;
 }
 
 export default function ProtectedHomePage() {

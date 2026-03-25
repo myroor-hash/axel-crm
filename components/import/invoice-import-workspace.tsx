@@ -14,11 +14,14 @@ export function InvoiceImportWorkspace() {
   const [allRows, setAllRows] = useState<ImportedInvoiceRow[]>([]);
   const [fileName, setFileName] = useState("");
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [importResult, setImportResult] = useState<{
     imported: number;
     skipped: number;
   } | null>(null);
   const [clearMessage, setClearMessage] = useState<string | null>(null);
+  const [isImporting, setIsImporting] = useState(false);
+  const [isClearing, setIsClearing] = useState(false);
 
   const primaryButton =
     "rounded-xl bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-800 active:scale-[0.98] disabled:opacity-50";
@@ -28,6 +31,7 @@ export function InvoiceImportWorkspace() {
   async function handleFileUpload(file: File) {
     try {
       setUploadError(null);
+      setActionError(null);
       setImportResult(null);
       setClearMessage(null);
 
@@ -35,6 +39,10 @@ export function InvoiceImportWorkspace() {
       setAllRows(parsed);
       setRows(parsed.slice(0, 20));
       setFileName(file.name);
+
+      if (parsed.length === 0) {
+        setUploadError("No invoice rows were found in that CSV file.");
+      }
     } catch (error) {
       setUploadError(
         error instanceof Error ? error.message : "Unable to parse invoice file."
@@ -44,30 +52,51 @@ export function InvoiceImportWorkspace() {
 
   async function handleImport() {
     if (allRows.length === 0) return;
+    setIsImporting(true);
+    setActionError(null);
 
-    const result = await importInvoices({
-      rows: allRows,
-    });
+    try {
+      const result = await importInvoices({
+        rows: allRows,
+      });
 
-    setImportResult(result);
-    setClearMessage(null);
+      setImportResult(result);
+      setClearMessage(null);
 
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    } catch (error) {
+      setActionError(
+        error instanceof Error ? error.message : "Unable to import invoices."
+      );
+    } finally {
+      setIsImporting(false);
     }
   }
 
   async function handleClearImported() {
-    await clearImportedInvoices();
-    setImportResult(null);
-    setRows([]);
-    setAllRows([]);
-    setFileName("");
-    setUploadError(null);
-    setClearMessage("Imported invoices cleared.");
+    setIsClearing(true);
+    setActionError(null);
 
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
+    try {
+      await clearImportedInvoices();
+      setImportResult(null);
+      setRows([]);
+      setAllRows([]);
+      setFileName("");
+      setUploadError(null);
+      setClearMessage("Imported invoices cleared.");
+
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    } catch (error) {
+      setActionError(
+        error instanceof Error ? error.message : "Unable to clear invoices."
+      );
+    } finally {
+      setIsClearing(false);
     }
   }
 
@@ -116,9 +145,10 @@ export function InvoiceImportWorkspace() {
           <button
             type="button"
             onClick={handleClearImported}
+            disabled={isClearing}
             className={secondaryButton}
           >
-            Clear Imported Invoices
+            {isClearing ? "Clearing..." : "Clear Imported Invoices"}
           </button>
 
           {clearMessage ? (
@@ -153,6 +183,12 @@ export function InvoiceImportWorkspace() {
           </div>
         ) : null}
 
+        {actionError ? (
+          <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+            {actionError}
+          </div>
+        ) : null}
+
         {rows.length > 0 ? (
           <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800">
             <span>
@@ -160,8 +196,13 @@ export function InvoiceImportWorkspace() {
               will be skipped.
             </span>
 
-            <button type="button" onClick={handleImport} className={primaryButton}>
-              Import Invoices
+            <button
+              type="button"
+              onClick={handleImport}
+              disabled={isImporting}
+              className={primaryButton}
+            >
+              {isImporting ? "Importing..." : "Import Invoices"}
             </button>
           </div>
         ) : null}

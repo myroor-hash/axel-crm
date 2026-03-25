@@ -47,6 +47,8 @@ type QueueEmailRow = {
   clicked_at: string | null;
 };
 
+const INVOICE_PAGE_SIZE = 1000;
+
 function buildContactName(lead: {
   contact_name?: string | null;
   contact_first_name?: string | null;
@@ -107,6 +109,38 @@ function businessNamesMatch(left: string | null | undefined, right: string | nul
   );
 }
 
+async function fetchAllInvoiceRows(supabase: ReturnType<typeof createAdminSupabaseClient>) {
+  const rows: QueueInvoiceRow[] = [];
+  let from = 0;
+
+  while (true) {
+    const to = from + INVOICE_PAGE_SIZE - 1;
+    const { data, error } = await supabase
+      .from("invoices")
+      .select("customer_name, customer_ref")
+      .range(from, to);
+
+    if (error) {
+      if (error.code === "42P01") {
+        return [];
+      }
+
+      throw error;
+    }
+
+    const batch = (data ?? []) as QueueInvoiceRow[];
+    rows.push(...batch);
+
+    if (batch.length < INVOICE_PAGE_SIZE) {
+      break;
+    }
+
+    from += INVOICE_PAGE_SIZE;
+  }
+
+  return rows;
+}
+
 export async function GET() {
   const crmUser = await getCurrentCrmUser();
 
@@ -120,7 +154,6 @@ export async function GET() {
   const [
     { data: leads, error: leadsError },
     { data: locks, error: locksError },
-    { data: invoices, error: invoicesError },
     { data: leadEmails, error: leadEmailsError },
   ] = await Promise.all([
     supabase
@@ -135,7 +168,6 @@ export async function GET() {
       .eq("is_active", true)
       .is("released_at", null)
       .gt("expires_at", now),
-    supabase.from("invoices").select("customer_name, customer_ref"),
     supabase
       .from("lead_emails")
       .select("lead_id, clicked_at")
@@ -157,18 +189,20 @@ export async function GET() {
     );
   }
 
-  if (invoicesError && invoicesError.code !== "42P01") {
-    return NextResponse.json(
-      { error: `Failed to load invoice summary: ${invoicesError.message}` },
-      { status: 500 }
-    );
-  }
-
   if (leadEmailsError && leadEmailsError.code !== "42P01") {
     return NextResponse.json(
       { error: `Failed to load email engagement summary: ${leadEmailsError.message}` },
       { status: 500 }
     );
+  }
+
+  let invoiceRows: QueueInvoiceRow[] = [];
+  try {
+    invoiceRows = await fetchAllInvoiceRows(supabase);
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Failed to load invoice summary.";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 
   const queueLeads = (leads ?? []) as QueueLeadRow[];
@@ -219,7 +253,6 @@ export async function GET() {
     }
   }
 
-  const invoiceRows = (invoices ?? []) as QueueInvoiceRow[];
   const invoiceRefSet = new Set(
     invoiceRows
       .map((invoice) =>

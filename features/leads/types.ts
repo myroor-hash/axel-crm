@@ -29,6 +29,14 @@ export interface LeadQueueItem {
   locked_by_name: string | null;
 }
 
+export interface LeadQueueView extends LeadQueueItem {
+  computed_has_contact_history?: boolean;
+  computed_follow_up_at?: string | null;
+  computed_follow_up_due?: boolean;
+  computed_status_badge?: string;
+  queue_bucket?: "existing" | "follow_up" | "new_leads" | "other";
+}
+
 export interface LeadDetail {
   id: string;
   customer_number?: string | null;

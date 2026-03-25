@@ -4,6 +4,7 @@ import type {
   LeadDetail,
   LeadEmailSummary,
   LeadQueueItem,
+  LeadQueueView,
 } from "@/features/leads/types";
 import type { ImportedLeadRow } from "@/features/import/types";
 
@@ -50,51 +51,6 @@ type LeadRow = {
   } | null;
 };
 
-type QueueLeadRow = Pick<
-  LeadRow,
-  | "external_ref"
-  | "created_at"
-  | "id"
-  | "shop_name"
-  | "contact_name"
-  | "contact_first_name"
-  | "contact_last_name"
-  | "phone_number"
-  | "postcode"
-  | "town_city"
-  | "status"
-  | "last_outcome"
-  | "last_contacted_at"
-  | "next_follow_up_at"
-  | "is_active"
->;
-
-type LockRow = {
-  lead_id: string;
-  user_id: string;
-};
-
-type QueueActivityRow = {
-  lead_id: string;
-  action_label: string;
-  created_at: string;
-};
-
-type UserRow = {
-  id: string;
-  full_name: string;
-};
-
-type QueueInvoiceRow = {
-  customer_name: string | null;
-  customer_ref: string | null;
-};
-
-type QueueEmailRow = {
-  lead_id: string;
-  clicked_at: string | null;
-};
-
 function normalizePhone(value: string | null | undefined): string {
   return String(value ?? "").replace(/\s+/g, "").trim();
 }
@@ -114,17 +70,6 @@ function splitContactName(name?: string) {
     firstName: parts[0],
     lastName: parts.slice(1).join(" "),
   };
-}
-
-function buildContactName(lead: {
-  contact_name?: string | null;
-  contact_first_name?: string | null;
-  contact_last_name?: string | null;
-}) {
-  if (lead.contact_name) return lead.contact_name;
-  return [lead.contact_first_name, lead.contact_last_name]
-    .filter(Boolean)
-    .join(" ") || null;
 }
 
 function coerceLeadStatus(value: string | null | undefined): LeadStatus {
@@ -251,161 +196,21 @@ function businessNamesMatch(left: string | null | undefined, right: string | nul
 }
 
 export async function fetchLeadQueue(): Promise<LeadQueueItem[]> {
-  const supabase = createBrowserSupabaseClient();
-  const now = new Date().toISOString();
+  const queueEndpoint = "/api/leads/queue" as string;
+  const response = await fetch(queueEndpoint, {
+    method: "GET",
+    cache: "no-store",
+  });
 
-  const [
-    { data: leads, error: leadsError },
-    { data: locks, error: locksError },
-    { data: invoices, error: invoicesError },
-    { data: leadEmails, error: leadEmailsError },
-  ] =
-    await Promise.all([
-      supabase
-        .from("leads")
-        .select(
-          "id, external_ref, created_at, shop_name, contact_name, contact_first_name, contact_last_name, phone_number, postcode, town_city, status, last_outcome, last_contacted_at, next_follow_up_at, is_active"
-        )
-        .or("is_active.is.null,is_active.eq.true"),
-      supabase
-        .from("lead_locks")
-        .select("lead_id, user_id")
-        .eq("is_active", true)
-        .is("released_at", null)
-        .gt("expires_at", now),
-      supabase.from("invoices").select("customer_name, customer_ref"),
-      supabase
-        .from("lead_emails")
-        .select("lead_id, clicked_at")
-        .not("clicked_at", "is", null)
-        .order("clicked_at", { ascending: false }),
-    ]);
+  const payload = (await response.json().catch(() => null)) as
+    | { rows?: LeadQueueView[]; error?: string }
+    | null;
 
-  if (leadsError) {
-    throw new Error(`Failed to load leads: ${leadsError.message}`);
+  if (!response.ok) {
+    throw new Error(payload?.error ?? "Failed to load leads.");
   }
 
-  if (locksError) {
-    throw new Error(`Failed to load lead locks: ${locksError.message}`);
-  }
-
-  if (invoicesError && invoicesError.code !== "42P01") {
-    throw new Error(`Failed to load invoice summary: ${invoicesError.message}`);
-  }
-
-  if (leadEmailsError && leadEmailsError.code !== "42P01") {
-    throw new Error(`Failed to load email engagement summary: ${leadEmailsError.message}`);
-  }
-
-  const queueLeads = (leads ?? []) as QueueLeadRow[];
-  const leadIds = queueLeads.map((lead) => lead.id);
-  const { data: activities, error: activitiesError } = leadIds.length
-    ? await supabase
-        .from("lead_activities")
-        .select("lead_id, action_label, created_at")
-        .in("lead_id", leadIds)
-        .order("created_at", { ascending: false })
-    : { data: [] as QueueActivityRow[], error: null };
-
-  if (activitiesError) {
-    throw new Error(`Failed to load lead activity summary: ${activitiesError.message}`);
-  }
-
-  const activeLocks = (locks ?? []) as LockRow[];
-  const userIds = [...new Set(activeLocks.map((lock) => lock.user_id))];
-  const { data: users, error: usersError } = userIds.length
-    ? await supabase.from("users").select("id, full_name").in("id", userIds)
-    : { data: [] as UserRow[], error: null };
-
-  if (usersError) {
-    throw new Error(`Failed to load lock owners: ${usersError.message}`);
-  }
-
-  const userMap = new Map((users ?? []).map((user) => [user.id, user.full_name]));
-  const lockMap = new Map(
-    activeLocks.map((lock) => [
-      String(lock.lead_id),
-      (() => {
-        const fullName = userMap.get(String(lock.user_id));
-        return typeof fullName === "string" ? fullName : null;
-      })(),
-    ])
-  );
-
-  const latestActivityMap = new Map<string, QueueActivityRow>();
-  for (const activity of (activities ?? []) as QueueActivityRow[]) {
-    if (!latestActivityMap.has(activity.lead_id)) {
-      latestActivityMap.set(activity.lead_id, activity);
-    }
-  }
-
-  const invoiceRows = (invoices ?? []) as QueueInvoiceRow[];
-  const invoiceRefSet = new Set(
-    invoiceRows
-      .map((invoice) =>
-        typeof invoice.customer_ref === "string"
-          ? invoice.customer_ref.trim().toLowerCase()
-          : null
-      )
-      .filter((value): value is string => Boolean(value))
-  );
-  const invoiceNameSet = new Set(
-    invoiceRows
-      .map((invoice) =>
-        typeof invoice.customer_name === "string"
-          ? normalizeBusinessName(invoice.customer_name)
-          : null
-      )
-      .filter((value): value is string => Boolean(value))
-  );
-  const latestClickMap = new Map<string, string>();
-  for (const email of (leadEmails ?? []) as QueueEmailRow[]) {
-    if (email.clicked_at && !latestClickMap.has(email.lead_id)) {
-      latestClickMap.set(email.lead_id, email.clicked_at);
-    }
-  }
-
-  return queueLeads.map((lead) => ({
-    id: lead.id,
-    customer_number: lead.external_ref ?? null,
-    created_at: lead.created_at ?? null,
-    shop_name: lead.shop_name,
-    town_city: lead.town_city ?? null,
-    contact_name: buildContactName(lead),
-    phone_number: lead.phone_number ?? null,
-    postcode: lead.postcode ?? null,
-    has_invoice_history: (() => {
-      const leadCustomerRef =
-        "external_ref" in lead && typeof lead.external_ref === "string"
-          ? lead.external_ref.trim().toLowerCase()
-          : null;
-      const normalizedLeadName = normalizeBusinessName(lead.shop_name);
-
-      if (leadCustomerRef && invoiceRefSet.has(leadCustomerRef)) {
-        return true;
-      }
-
-      if (normalizedLeadName && invoiceNameSet.has(normalizedLeadName)) {
-        return true;
-      }
-
-      return invoiceRows.some((invoice) =>
-        businessNamesMatch(
-          typeof invoice.customer_name === "string" ? invoice.customer_name : null,
-          lead.shop_name
-        )
-      );
-    })(),
-    status: coerceLeadStatus(lead.status),
-    last_outcome: lead.last_outcome ?? null,
-    last_contacted_at: lead.last_contacted_at ?? null,
-    last_activity_at: latestActivityMap.get(lead.id)?.created_at ?? null,
-    last_activity_label: latestActivityMap.get(lead.id)?.action_label ?? null,
-    next_follow_up_at: lead.next_follow_up_at ?? null,
-    recent_email_clicked_at: latestClickMap.get(lead.id) ?? null,
-    is_locked: lockMap.has(lead.id),
-    locked_by_name: lockMap.get(lead.id) ?? null,
-  }));
+  return Array.isArray(payload?.rows) ? payload.rows : [];
 }
 
 export async function fetchLeadById(leadId: string): Promise<LeadDetail | null> {

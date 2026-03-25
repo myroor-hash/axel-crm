@@ -4,7 +4,7 @@ type QueueLead = LeadQueueItem & {
   computed_follow_up_at?: string | null;
   computed_follow_up_due?: boolean;
   computed_status_badge?: string;
-  computed_priority?: number;
+  queue_bucket?: "existing" | "follow_up" | "new_leads" | "other";
 };
 
 export function LeadList({

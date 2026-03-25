@@ -26,7 +26,7 @@ import type {
   InvoiceSummary,
   LeadDetail,
   LeadEmailSummary,
-  LeadQueueItem,
+  LeadQueueView,
 } from "@/features/leads/types";
 import type { LeadReadOnlyState } from "@/features/locks/types";
 import type { AttachmentOption } from "@/features/attachments/types";
@@ -59,27 +59,8 @@ function mapDbActivities(rows: DbActivity[]): Activity[] {
   }));
 }
 
-function matchesQueueTab(
-  lead: LeadQueueItem & {
-    computed_has_contact_history?: boolean;
-    computed_follow_up_at?: string | null;
-  },
-  tab: QueueTab
-) {
-  if (lead.computed_follow_up_at) {
-    return tab === "follow_up";
-  }
-
-  if (lead.has_invoice_history) {
-    return tab === "existing";
-  }
-
-  return tab === "new_leads" && !lead.computed_has_contact_history;
-}
-
 export default function ProtectedHomePage() {
-  const [, setQueueClock] = useState(() => Date.now());
-  const [baseQueue, setBaseQueue] = useState<LeadQueueItem[]>([]);
+  const [baseQueue, setBaseQueue] = useState<LeadQueueView[]>([]);
   const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null);
   const [selectedLead, setSelectedLead] = useState<LeadDetail | null>(null);
   const [readOnlyState, setReadOnlyState] = useState<LeadReadOnlyState | null>(null);
@@ -87,7 +68,7 @@ export default function ProtectedHomePage() {
   const [emailMap, setEmailMap] = useState<Record<string, LeadEmailSummary[]>>({});
   const [activityMap, setActivityMap] = useState<Record<string, Activity[]>>({});
   const [lastActionMap, setLastActionMap] = useState<Record<string, string | null>>({});
-  const [contactStateMap, setContactStateMap] = useState<Record<string, ContactState>>({});
+  const [, setContactStateMap] = useState<Record<string, ContactState>>({});
   const [showUnfinishedWarning, setShowUnfinishedWarning] = useState(false);
   const [panelMode, setPanelMode] = useState<PanelMode>("lead");
   const [attachments, setAttachments] = useState<AttachmentOption[]>([]);
@@ -122,14 +103,6 @@ export default function ProtectedHomePage() {
     loadQueue();
     loadAttachments();
     loadCallsTodayCount();
-  }, []);
-
-  useEffect(() => {
-    const interval = window.setInterval(() => {
-      setQueueClock(Date.now());
-    }, 30000);
-
-    return () => window.clearInterval(interval);
   }, []);
 
   useEffect(() => {
@@ -205,89 +178,10 @@ export default function ProtectedHomePage() {
     loadEmails();
   }, [selectedLeadId]);
 
-  const queue = useMemo(() => {
-    const now = new Date();
-
-    function enrichLead(lead: LeadQueueItem) {
-      const contactState = contactStateMap[lead.id];
-      const lastContactAt =
-        contactState?.lastContactAt ??
-        lead.last_contacted_at ??
-        lead.last_activity_at ??
-        null;
-      const followUpAt =
-        contactState?.followUpAt ?? lead.next_follow_up_at ?? null;
-      const hasRecordedOutcome = Boolean(lead.last_outcome || lead.last_activity_label);
-      const hasContactHistory = Boolean(lastContactAt || hasRecordedOutcome);
-
-      const followUpDue =
-        Boolean(followUpAt) && new Date(followUpAt as string).getTime() <= now.getTime();
-      let statusBadge = "Not Contacted";
-      if (contactState?.statusLabel) {
-        statusBadge = contactState.statusLabel;
-      } else if (followUpDue) {
-        statusBadge = "Follow Up Due";
-      } else if (followUpAt) {
-        statusBadge = "Follow Up Scheduled";
-      } else if (hasContactHistory) {
-        statusBadge = "Contacted";
-      }
-
-      return {
-        ...lead,
-        computed_has_contact_history: hasContactHistory,
-        last_contacted_at: lastContactAt,
-        computed_follow_up_at: followUpAt,
-        computed_follow_up_due: followUpDue,
-        computed_status_badge: statusBadge,
-      };
-    }
-
-    return [...baseQueue]
-      .map(enrichLead)
-      .sort((a, b) => {
-        const aIsFollowUp = Boolean(a.computed_follow_up_at);
-        const bIsFollowUp = Boolean(b.computed_follow_up_at);
-
-        if (aIsFollowUp && bIsFollowUp) {
-          const aTime = a.computed_follow_up_at
-            ? new Date(a.computed_follow_up_at).getTime()
-            : Number.POSITIVE_INFINITY;
-          const bTime = b.computed_follow_up_at
-            ? new Date(b.computed_follow_up_at).getTime()
-            : Number.POSITIVE_INFINITY;
-          return aTime - bTime;
-        }
-
-        if (a.has_invoice_history !== b.has_invoice_history) {
-          return a.has_invoice_history ? -1 : 1;
-        }
-
-        if (!a.has_invoice_history && !b.has_invoice_history) {
-          const aTime = a.created_at ? new Date(a.created_at).getTime() : 0;
-          const bTime = b.created_at ? new Date(b.created_at).getTime() : 0;
-          if (aTime !== bTime) {
-            return bTime - aTime;
-          }
-        }
-
-        const aTime = a.last_contacted_at
-          ? new Date(a.last_contacted_at).getTime()
-          : 0;
-        const bTime = b.last_contacted_at
-          ? new Date(b.last_contacted_at).getTime()
-          : 0;
-
-        if (aTime !== bTime) {
-          return aTime - bTime;
-        }
-
-        return a.shop_name.localeCompare(b.shop_name, "en-GB");
-      });
-  }, [baseQueue, contactStateMap]);
+  const queue = useMemo(() => baseQueue, [baseQueue]);
 
   const tabQueue = useMemo(
-    () => queue.filter((lead) => matchesQueueTab(lead, queueTab)),
+    () => queue.filter((lead) => lead.queue_bucket === queueTab),
     [queue, queueTab]
   );
 
@@ -313,15 +207,15 @@ export default function ProtectedHomePage() {
 
   const visibleQueue = useMemo(() => filteredQueue.slice(0, 20), [filteredQueue]);
   const existingQueueCount = useMemo(
-    () => queue.filter((lead) => matchesQueueTab(lead, "existing")).length,
+    () => queue.filter((lead) => lead.queue_bucket === "existing").length,
     [queue]
   );
   const followUpQueueCount = useMemo(
-    () => queue.filter((lead) => matchesQueueTab(lead, "follow_up")).length,
+    () => queue.filter((lead) => lead.queue_bucket === "follow_up").length,
     [queue]
   );
   const newLeadsQueueCount = useMemo(
-    () => queue.filter((lead) => matchesQueueTab(lead, "new_leads")).length,
+    () => queue.filter((lead) => lead.queue_bucket === "new_leads").length,
     [queue]
   );
 
@@ -362,7 +256,7 @@ export default function ProtectedHomePage() {
   function handleSelectQueueTab(tab: QueueTab) {
     setQueueTab(tab);
 
-    const nextTabQueue = queue.filter((lead) => matchesQueueTab(lead, tab));
+    const nextTabQueue = queue.filter((lead) => lead.queue_bucket === tab);
 
     if (nextTabQueue.length === 0) {
       setSelectedLeadId(null);

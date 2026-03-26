@@ -384,6 +384,8 @@ export default function ProtectedHomePage() {
     note?: string,
     followUpAt?: string
   ) {
+    setPanelMode("lead");
+
     const result = await recordCallOutcome({
       leadId,
       actionLabel: action,
@@ -496,6 +498,8 @@ export default function ProtectedHomePage() {
   }
 
   async function handleSaveNote(leadId: string, noteText: string) {
+    setPanelMode("lead");
+
     await recordLeadNote({
       leadId,
       noteText,
@@ -517,6 +521,8 @@ export default function ProtectedHomePage() {
   }
 
   async function handleScheduleFollowUp(leadId: string, followUpAt: string) {
+    setPanelMode("lead");
+
     const result = await scheduleLeadFollowUp({
       leadId,
       followUpAt,

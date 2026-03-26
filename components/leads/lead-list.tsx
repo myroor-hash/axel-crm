@@ -11,10 +11,14 @@ export function LeadList({
   leads,
   selectedLeadId,
   onSelectLead,
+  title,
+  description,
 }: {
   leads: QueueLead[];
   selectedLeadId: string | null;
   onSelectLead: (leadId: string) => void;
+  title: string;
+  description: string;
 }) {
   function formatLastContact(value: string | null) {
     if (!value) return "Never";
@@ -47,10 +51,10 @@ export function LeadList({
     <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
       <div className="border-b border-slate-200 bg-slate-950 px-5 py-4 text-white">
         <h2 className="text-lg font-semibold tracking-tight text-white">
-          Call Queue
+          {title}
         </h2>
         <p className="mt-1 text-sm text-slate-200">
-          Existing customers, scheduled follow-ups, and new leads without sales.
+          {description}
         </p>
       </div>
 

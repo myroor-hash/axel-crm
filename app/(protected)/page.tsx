@@ -47,6 +47,27 @@ type ContactState = {
 type PanelMode = "lead" | "email";
 type QueueTab = "existing" | "follow_up" | "new_leads";
 
+const QUEUE_TAB_META: Record<
+  QueueTab,
+  {
+    title: string;
+    description: string;
+  }
+> = {
+  existing: {
+    title: "Existing Customers",
+    description: "These are customers who have bought product.",
+  },
+  follow_up: {
+    title: "Follow Up",
+    description: "These leads have a scheduled callback and need action.",
+  },
+  new_leads: {
+    title: "New Leads (No Sales)",
+    description: "These leads have no invoice history or sales yet.",
+  },
+};
+
 function mapDbActivities(rows: DbActivity[]): Activity[] {
   return rows.map((row) => ({
     time: new Date(row.created_at).toLocaleTimeString("en-GB", {
@@ -218,6 +239,7 @@ export default function ProtectedHomePage() {
     () => queue.filter((lead) => lead.queue_bucket === "new_leads").length,
     [queue]
   );
+  const activeQueueMeta = QUEUE_TAB_META[queueTab];
 
   const nextAvailableLeadId = useMemo(() => {
     if (tabQueue.length === 0) return null;
@@ -562,9 +584,13 @@ export default function ProtectedHomePage() {
               type="button"
               onClick={() => handleSelectQueueTab("follow_up")}
               className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
-                queueTab === "follow_up"
-                  ? "bg-slate-900 text-white"
-                  : "border border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+                followUpQueueCount > 0
+                  ? queueTab === "follow_up"
+                    ? "bg-red-600 text-white"
+                    : "border border-red-300 bg-red-50 text-red-700 hover:bg-red-100"
+                  : queueTab === "follow_up"
+                    ? "bg-slate-900 text-white"
+                    : "border border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
               }`}
             >
               Follow Up ({followUpQueueCount})
@@ -589,6 +615,8 @@ export default function ProtectedHomePage() {
             leads={visibleQueue}
             selectedLeadId={selectedLeadId}
             onSelectLead={handleSelectLead}
+            title={activeQueueMeta.title}
+            description={activeQueueMeta.description}
           />
 
           <div className="space-y-6">

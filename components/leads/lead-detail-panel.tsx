@@ -47,14 +47,15 @@ export function LeadDetailPanel({
 }) {
   const [note, setNote] = useState("");
   const [manualFollowUpAt, setManualFollowUpAt] = useState("");
-  const [showAllEmails, setShowAllEmails] = useState(false);
-  const [showAllActivities, setShowAllActivities] = useState(false);
   const [noteError, setNoteError] = useState<string | null>(null);
   const [isSavingNote, setIsSavingNote] = useState(false);
   const [followUpError, setFollowUpError] = useState<string | null>(null);
   const [isSavingFollowUp, setIsSavingFollowUp] = useState(false);
   const [isRecordingOutcome, setIsRecordingOutcome] = useState(false);
   const [showNoAnswerPrompt, setShowNoAnswerPrompt] = useState(false);
+  const [showInvoices, setShowInvoices] = useState(false);
+  const [showEmailHistory, setShowEmailHistory] = useState(false);
+  const [showActivities, setShowActivities] = useState(false);
   const noteInputRef = useRef<HTMLTextAreaElement | null>(null);
 
   if (!lead) {
@@ -67,8 +68,6 @@ export function LeadDetailPanel({
 
   const activeLead = lead;
   const isReadOnly = readOnlyState?.isReadOnly ?? false;
-  const visibleEmails = showAllEmails ? emails : emails.slice(0, 1);
-  const visibleActivities = showAllActivities ? activities : activities.slice(0, 2);
   const sectionHeaderClass =
     "mb-4 rounded-xl bg-slate-950 px-4 py-3 text-xs font-semibold uppercase tracking-[0.18em] text-white";
 
@@ -206,6 +205,29 @@ export function LeadDetailPanel({
     });
   }
 
+  function renderCollapsibleHeader(
+    title: string,
+    countLabel: string,
+    isOpen: boolean,
+    onToggle: () => void
+  ) {
+    return (
+      <button
+        type="button"
+        onClick={onToggle}
+        className="flex w-full items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-left transition hover:bg-slate-100"
+      >
+        <div>
+          <p className="text-sm font-semibold text-slate-900">{title}</p>
+          <p className="text-xs text-slate-500">{countLabel}</p>
+        </div>
+        <span className="text-sm font-medium text-slate-600">
+          {isOpen ? "Hide ▲" : "Show ▼"}
+        </span>
+      </button>
+    );
+  }
+
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
       <div className="-mx-6 -mt-6 rounded-t-2xl bg-slate-950 px-6 py-5 text-white">
@@ -225,291 +247,81 @@ export function LeadDetailPanel({
         ) : null}
       </div>
 
-      {emailComposer ? <div className="mt-6">{emailComposer}</div> : null}
-
-      <div className="mt-6 space-y-4 text-sm text-slate-700">
-        <div>
-          <p className="text-xs uppercase text-slate-500">Contact</p>
-          <p>{contactName}</p>
+      <div className="mt-6 rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 text-sm text-slate-700">
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div>
+            <p className="text-xs uppercase text-slate-500">Contact</p>
+            <p className="font-medium text-slate-900">{contactName}</p>
+          </div>
+          <div>
+            <p className="text-xs uppercase text-slate-500">Phone</p>
+            <p className="font-medium text-slate-900">{activeLead.phone_number}</p>
+          </div>
+          <div>
+            <p className="text-xs uppercase text-slate-500">Email</p>
+            <p className="font-medium text-slate-900">{activeLead.email ?? "—"}</p>
+          </div>
+          <div>
+            <p className="text-xs uppercase text-slate-500">Customer Number</p>
+            <p className="font-medium text-slate-900">
+              {activeLead.customer_number ?? activeLead.external_ref ?? "—"}
+            </p>
+          </div>
         </div>
-
-        <div>
-          <p className="text-xs uppercase text-slate-500">Phone</p>
-          <p>{activeLead.phone_number}</p>
-        </div>
-
-        <div>
-          <p className="text-xs uppercase text-slate-500">Email</p>
-          <p>{activeLead.email ?? "—"}</p>
-        </div>
-
-        <div>
+        <div className="mt-3 border-t border-slate-200 pt-3">
           <p className="text-xs uppercase text-slate-500">Location</p>
-          <p>
+          <p className="font-medium text-slate-900">
             {[activeLead.town_city, activeLead.county_region, activeLead.postcode]
               .filter(Boolean)
               .join(", ") || "—"}
           </p>
         </div>
-
-        <div>
-          <p className="text-xs uppercase text-slate-500">Customer Number</p>
-          <p>{activeLead.customer_number ?? activeLead.external_ref ?? "—"}</p>
-        </div>
-
-        <div>
+        <div className="mt-3 border-t border-slate-200 pt-3">
           <p className="text-xs uppercase text-slate-500">Priority Note</p>
-          <p>{activeLead.priority_note ?? "—"}</p>
+          <p className="font-medium text-slate-900">{activeLead.priority_note ?? "—"}</p>
         </div>
-      </div>
-
-      <div className="mt-6 border-t pt-6">
-        <div className={sectionHeaderClass}>Previous Invoices</div>
-        <div className="flex items-center justify-between gap-3">
-          <span className="text-xs text-slate-500">
-            {invoices.length} recent invoice{invoices.length === 1 ? "" : "s"}
-          </span>
-        </div>
-
-        {invoices.length === 0 ? (
-          <p className="mt-3 text-sm text-slate-500">
-            No invoice history linked yet. Once invoices are imported, this area
-            will show previous order dates and values for this customer.
-          </p>
-        ) : (
-          <div className="mt-3 space-y-3">
-            {invoices.map((invoice) => (
-              <div
-                key={invoice.id}
-                className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3"
-              >
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-semibold text-slate-900">
-                      {invoice.invoice_ref}
-                    </p>
-                    <p className="text-xs text-slate-500">
-                      {invoice.invoice_date
-                        ? new Date(invoice.invoice_date).toLocaleDateString("en-GB", {
-                            day: "2-digit",
-                            month: "short",
-                            year: "numeric",
-                          })
-                        : "Date unknown"}
-                    </p>
-                  </div>
-
-                  <div className="text-right">
-                    <p className="text-sm font-semibold text-slate-900">
-                      {invoice.total_amount ?? "—"}
-                    </p>
-                    <p className="text-xs text-slate-500">
-                      {[invoice.status, invoice.sent_status].filter(Boolean).join(" · ") ||
-                        "Status unknown"}
-                    </p>
-                  </div>
-                </div>
-
-                {invoice.description ? (
-                  <p className="mt-2 line-clamp-2 text-sm text-slate-600">
-                    {invoice.description}
-                  </p>
-                ) : null}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      <div className="mt-6 border-t pt-6">
-        <div className={sectionHeaderClass}>Email History</div>
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <span className="text-xs text-slate-500">
-              {emails.length} recent email{emails.length === 1 ? "" : "s"}
-            </span>
-            {emails.length > 1 ? (
-              <button
-                type="button"
-                onClick={() => setShowAllEmails((prev) => !prev)}
-                className="text-xs font-medium text-slate-600 transition hover:text-slate-900"
-              >
-                {showAllEmails ? "Hide ▲" : "Show All ▼"}
-              </button>
-            ) : null}
-          </div>
-        </div>
-
-        {emails.length === 0 ? (
-          <p className="mt-3 text-sm text-slate-500">
-            No emails sent yet. Sent emails will appear here with delivery and
-            engagement status.
-          </p>
-        ) : (
-          <div className="mt-3 space-y-3">
-            {visibleEmails.map((email) => (
-              <div
-                key={email.id}
-                className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3"
-              >
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-semibold text-slate-900">
-                      {email.subject}
-                    </p>
-                    <p className="text-xs text-slate-500">
-                      To {email.recipient_email}
-                    </p>
-                    {email.sent_by_name ? (
-                      <p className="text-xs text-slate-500">
-                        Sent by {email.sent_by_name}
-                      </p>
-                    ) : null}
-                  </div>
-
-                  <div className="text-right">
-                    <p className="text-sm font-semibold capitalize text-slate-900">
-                      {email.status}
-                    </p>
-                    <p className="text-xs text-slate-500">
-                      Sent {formatEventTime(email.sent_at) ?? "unknown"}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-600">
-                  <span>
-                    Delivered: {formatEventTime(email.delivered_at) ?? "—"}
-                  </span>
-                  <span>Opened: {formatEventTime(email.opened_at) ?? "—"}</span>
-                  <span>Clicked: {formatEventTime(email.clicked_at) ?? "—"}</span>
-                </div>
-
-                {email.attachment_name ? (
-                  <p className="mt-2 text-xs text-slate-600">
-                    Links: {email.attachment_name}
-                  </p>
-                ) : null}
-              </div>
-            ))}
-          </div>
-        )}
       </div>
 
       <div className="mt-6 border-t pt-6">
         <div className={sectionHeaderClass}>Call Outcome</div>
-
-        <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4">
-          <div className="flex items-center justify-between gap-3">
-            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
-              Note
-            </p>
-            <button
-              type="button"
-              onClick={handleSaveNote}
-              disabled={isReadOnly || isSavingNote}
-              className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-900 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {isSavingNote ? "Saving..." : "Commit Note"}
-            </button>
-          </div>
-
-          <textarea
-            ref={noteInputRef}
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            disabled={isReadOnly}
-            className="mt-3 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-500 disabled:opacity-50"
-            rows={3}
-            placeholder="Add a note for this lead..."
-          />
-
-          {noteError ? (
-            <p className="mt-2 text-sm font-medium text-red-700">{noteError}</p>
-          ) : null}
-        </div>
-
-        <div className="mt-4">
-          <div className="flex items-center justify-between gap-3">
-            <p className="text-xs uppercase text-slate-500">Manual Follow-Up</p>
-            <div className="flex items-center gap-3">
-              {manualFollowUpAt ? (
-                <button
-                  type="button"
-                  disabled={isReadOnly}
-                  onClick={() => setManualFollowUpAt("")}
-                  className="text-xs font-medium text-slate-500 transition hover:text-slate-900 disabled:opacity-50"
-                >
-                  Clear
-                </button>
-              ) : null}
-              <button
-                type="button"
-                onClick={handleSaveFollowUp}
-                disabled={isReadOnly || isSavingFollowUp}
-                className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-900 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {isSavingFollowUp ? "Saving..." : "Commit Follow Up"}
-              </button>
-            </div>
-          </div>
-          <input
-            type="datetime-local"
-            value={manualFollowUpAt}
-            onChange={(e) => setManualFollowUpAt(e.target.value)}
-            disabled={isReadOnly}
-            className="mt-2 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-900 disabled:opacity-50"
-          />
-          <p className="mt-2 text-xs text-slate-500">
-            Use this when a buyer asks for a callback at a specific date and time.
-          </p>
-          {followUpError ? (
-            <p className="mt-2 text-sm font-medium text-red-700">{followUpError}</p>
-          ) : null}
-        </div>
-
-        <div className="mt-3 flex flex-wrap gap-2">
+        <div className="grid gap-2 md:grid-cols-5">
           <button
             type="button"
             disabled={isReadOnly || isRecordingOutcome}
             onClick={() => handleOutcome("No Answer")}
-            className={outcomeButtonClass("No Answer")}
+            className={`${outcomeButtonClass("No Answer")} w-full`}
           >
             No Answer
           </button>
-
           <button
             type="button"
             disabled={isReadOnly || isRecordingOutcome}
             onClick={() => handleOutcome("Gatekeeper")}
-            className={outcomeButtonClass("Gatekeeper")}
+            className={`${outcomeButtonClass("Gatekeeper")} w-full`}
           >
             Gatekeeper
           </button>
-
           <button
             type="button"
             disabled={isReadOnly || isRecordingOutcome}
             onClick={() => handleOutcome("Spoke to Buyer")}
-            className={outcomeButtonClass("Spoke to Buyer")}
+            className={`${outcomeButtonClass("Spoke to Buyer")} w-full`}
           >
             Spoke to Buyer
           </button>
-
           <button
             type="button"
             disabled={isReadOnly || isRecordingOutcome}
             onClick={() => handleOutcome("Send Info")}
-            className={outcomeButtonClass("Send Info")}
+            className={`${outcomeButtonClass("Send Info")} w-full`}
           >
             Send Info
           </button>
-
           <button
             type="button"
             disabled={isReadOnly || isRecordingOutcome}
             onClick={() => handleOutcome("Ordered Broth Bites")}
-            className={outcomeButtonClass("Ordered Broth Bites")}
+            className={`${outcomeButtonClass("Ordered Broth Bites")} w-full`}
           >
             Ordered Broth Bites
           </button>
@@ -565,42 +377,238 @@ export function LeadDetailPanel({
       </div>
 
       <div className="mt-6 border-t pt-6">
-        <div className={sectionHeaderClass}>Activity Timeline</div>
-
-        <div className="flex items-center justify-between gap-3">
-          <span className="text-xs text-slate-500">
-            {activities.length} recent activit{activities.length === 1 ? "y" : "ies"}
-          </span>
-          {activities.length > 2 ? (
-            <button
-              type="button"
-              onClick={() => setShowAllActivities((prev) => !prev)}
-              className="text-xs font-medium text-slate-600 transition hover:text-slate-900"
-            >
-              {showAllActivities ? "Hide ▲" : "Show All ▼"}
-            </button>
+        <div className={sectionHeaderClass}>Manual Follow-Up</div>
+        <div>
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-xs uppercase text-slate-500">Callback Date & Time</p>
+            <div className="flex items-center gap-3">
+              {manualFollowUpAt ? (
+                <button
+                  type="button"
+                  disabled={isReadOnly}
+                  onClick={() => setManualFollowUpAt("")}
+                  className="text-xs font-medium text-slate-500 transition hover:text-slate-900 disabled:opacity-50"
+                >
+                  Clear
+                </button>
+              ) : null}
+              <button
+                type="button"
+                onClick={handleSaveFollowUp}
+                disabled={isReadOnly || isSavingFollowUp}
+                className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-900 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {isSavingFollowUp ? "Saving..." : "Commit Follow Up"}
+              </button>
+            </div>
+          </div>
+          <input
+            type="datetime-local"
+            value={manualFollowUpAt}
+            onChange={(e) => setManualFollowUpAt(e.target.value)}
+            disabled={isReadOnly}
+            className="mt-2 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-900 disabled:opacity-50"
+          />
+          <p className="mt-2 text-xs text-slate-500">
+            Use this when a buyer asks for a callback at a specific date and time.
+          </p>
+          {followUpError ? (
+            <p className="mt-2 text-sm font-medium text-red-700">{followUpError}</p>
           ) : null}
         </div>
+      </div>
 
-        <div className="mt-3 space-y-3">
-          {activities.length === 0 && (
-            <p className="text-sm text-slate-500">No activity yet.</p>
-          )}
-
-          {visibleActivities.map((a, i) => (
-            <div
-              key={i}
-              className="rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-900"
+      <div className="mt-6 border-t pt-6">
+        <div className={sectionHeaderClass}>Notes</div>
+        <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+              Lead Note
+            </p>
+            <button
+              type="button"
+              onClick={handleSaveNote}
+              disabled={isReadOnly || isSavingNote}
+              className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-900 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              <div className="font-medium text-slate-900">
-                {a.action}
-                {a.actorName ? ` - ${a.actorName}` : ""}
-              </div>
-              <div className="mt-1 text-xs text-slate-500">{a.time}</div>
-              {a.note ? <div className="mt-1 text-slate-900">{a.note}</div> : null}
-            </div>
-          ))}
+              {isSavingNote ? "Saving..." : "Commit Note"}
+            </button>
+          </div>
+
+          <textarea
+            ref={noteInputRef}
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            disabled={isReadOnly}
+            className="mt-3 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-500 disabled:opacity-50"
+            rows={3}
+            placeholder="Add a note for this lead..."
+          />
+
+          {noteError ? (
+            <p className="mt-2 text-sm font-medium text-red-700">{noteError}</p>
+          ) : null}
         </div>
+      </div>
+
+      <div className="mt-6 border-t pt-6">
+        <div className={sectionHeaderClass}>Email</div>
+        {!emailComposer ? (
+          <p className="text-sm text-slate-500">
+            Use the call outcome buttons to open the prepared email composer.
+          </p>
+        ) : null}
+        {emailComposer ? <div className="mt-4">{emailComposer}</div> : null}
+      </div>
+
+      <div className="mt-6 border-t pt-6">
+        {renderCollapsibleHeader(
+          "Previous Invoices",
+          `${invoices.length} recent invoice${invoices.length === 1 ? "" : "s"}`,
+          showInvoices,
+          () => setShowInvoices((prev) => !prev)
+        )}
+        {showInvoices ? (
+          invoices.length === 0 ? (
+            <p className="mt-3 text-sm text-slate-500">
+              No invoice history linked yet. Once invoices are imported, this area
+              will show previous order dates and values for this customer.
+            </p>
+          ) : (
+            <div className="mt-3 space-y-3">
+              {invoices.map((invoice) => (
+                <div
+                  key={invoice.id}
+                  className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3"
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold text-slate-900">
+                        {invoice.invoice_ref}
+                      </p>
+                      <p className="text-xs text-slate-500">
+                        {invoice.invoice_date
+                          ? new Date(invoice.invoice_date).toLocaleDateString("en-GB", {
+                              day: "2-digit",
+                              month: "short",
+                              year: "numeric",
+                            })
+                          : "Date unknown"}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm font-semibold text-slate-900">
+                        {invoice.total_amount ?? "—"}
+                      </p>
+                      <p className="text-xs text-slate-500">
+                        {[invoice.status, invoice.sent_status].filter(Boolean).join(" · ") ||
+                          "Status unknown"}
+                      </p>
+                    </div>
+                  </div>
+                  {invoice.description ? (
+                    <p className="mt-2 line-clamp-2 text-sm text-slate-600">
+                      {invoice.description}
+                    </p>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          )
+        ) : null}
+      </div>
+
+      <div className="mt-6 border-t pt-6">
+        {renderCollapsibleHeader(
+          "Email History",
+          `${emails.length} recent email${emails.length === 1 ? "" : "s"}`,
+          showEmailHistory,
+          () => setShowEmailHistory((prev) => !prev)
+        )}
+        {showEmailHistory ? (
+          emails.length === 0 ? (
+            <p className="mt-3 text-sm text-slate-500">
+              No emails sent yet. Sent emails will appear here with delivery and
+              engagement status.
+            </p>
+          ) : (
+            <div className="mt-3 space-y-3">
+              {emails.map((email) => (
+                <div
+                  key={email.id}
+                  className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3"
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold text-slate-900">
+                        {email.subject}
+                      </p>
+                      <p className="text-xs text-slate-500">
+                        To {email.recipient_email}
+                      </p>
+                      {email.sent_by_name ? (
+                        <p className="text-xs text-slate-500">
+                          Sent by {email.sent_by_name}
+                        </p>
+                      ) : null}
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm font-semibold capitalize text-slate-900">
+                        {email.status}
+                      </p>
+                      <p className="text-xs text-slate-500">
+                        Sent {formatEventTime(email.sent_at) ?? "unknown"}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-600">
+                    <span>
+                      Delivered: {formatEventTime(email.delivered_at) ?? "—"}
+                    </span>
+                    <span>Opened: {formatEventTime(email.opened_at) ?? "—"}</span>
+                    <span>Clicked: {formatEventTime(email.clicked_at) ?? "—"}</span>
+                  </div>
+                  {email.attachment_name ? (
+                    <p className="mt-2 text-xs text-slate-600">
+                      Links: {email.attachment_name}
+                    </p>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          )
+        ) : null}
+      </div>
+
+      <div className="mt-6 border-t pt-6">
+        {renderCollapsibleHeader(
+          "Activity Timeline",
+          `${activities.length} recent activit${activities.length === 1 ? "y" : "ies"}`,
+          showActivities,
+          () => setShowActivities((prev) => !prev)
+        )}
+        {showActivities ? (
+          <div className="mt-3 space-y-3">
+            {activities.length === 0 ? (
+              <p className="text-sm text-slate-500">No activity yet.</p>
+            ) : null}
+            {activities.map((activity, index) => (
+              <div
+                key={index}
+                className="rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-900"
+              >
+                <div className="font-medium text-slate-900">
+                  {activity.action}
+                  {activity.actorName ? ` - ${activity.actorName}` : ""}
+                </div>
+                <div className="mt-1 text-xs text-slate-500">{activity.time}</div>
+                {activity.note ? (
+                  <div className="mt-1 text-slate-900">{activity.note}</div>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        ) : null}
       </div>
     </div>
   );

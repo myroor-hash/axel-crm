@@ -17,6 +17,7 @@ import {
   recordCallOutcome,
   recordEmailSent,
   recordLeadNote,
+  scheduleLeadFollowUp,
   sendLeadEmail,
   type DbActivity,
 } from "@/features/leads/queries";
@@ -515,6 +516,83 @@ export default function ProtectedHomePage() {
     }));
   }
 
+  async function handleScheduleFollowUp(leadId: string, followUpAt: string) {
+    const result = await scheduleLeadFollowUp({
+      leadId,
+      followUpAt,
+      previousStatus: selectedLead?.status ?? null,
+    });
+
+    setSelectedLead((prev) =>
+      prev && prev.id === leadId
+        ? {
+            ...prev,
+            next_follow_up_at: result.nextFollowUpAt,
+            status: result.status,
+          }
+        : prev
+    );
+
+    setBaseQueue((prev) => {
+      const now = new Date();
+      const todayKey = getLondonDateKey(now);
+
+      return prev.map((lead) => {
+        if (lead.id !== leadId) {
+          return lead;
+        }
+
+        const nextFollowUpAt = result.nextFollowUpAt;
+        const followUpDateKey = getLondonDateKey(nextFollowUpAt);
+        const followUpAvailable = Boolean(
+          followUpDateKey && todayKey && followUpDateKey <= todayKey
+        );
+        const followUpDue = new Date(nextFollowUpAt).getTime() <= now.getTime();
+        const computedStatusBadge = followUpAvailable
+          ? followUpDue
+            ? "Follow Up Due"
+            : "Follow Up Today"
+          : "Follow Up Booked";
+        const queueBucket = followUpAvailable
+          ? "follow_up"
+          : lead.has_invoice_history
+            ? "existing"
+            : "new_leads";
+
+        return {
+          ...lead,
+          status: result.status,
+          next_follow_up_at: nextFollowUpAt,
+          computed_follow_up_at: nextFollowUpAt,
+          computed_follow_up_available: followUpAvailable,
+          computed_follow_up_due: followUpDue,
+          computed_status_badge: computedStatusBadge,
+          queue_bucket: queueBucket,
+        };
+      });
+    });
+
+    setLastActionMap((prev) => ({
+      ...prev,
+      [leadId]: "Manual Follow Up Scheduled",
+    }));
+
+    await refreshQueue(leadId);
+    const refreshedActivities = await fetchLeadActivities(leadId);
+    const currentActorName = await fetchCurrentCrmActorName();
+    const mappedActivities = mapDbActivities(refreshedActivities);
+    if (mappedActivities[0] && !mappedActivities[0].actorName && currentActorName) {
+      mappedActivities[0] = {
+        ...mappedActivities[0],
+        actorName: currentActorName,
+      };
+    }
+    setActivityMap((prev) => ({
+      ...prev,
+      [leadId]: mappedActivities,
+    }));
+  }
+
   function handleOpenPreparedEmail() {
     setPanelMode("email");
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -768,6 +846,7 @@ export default function ProtectedHomePage() {
               readOnlyState={readOnlyState}
               onRecordActivity={handleRecordActivity}
               onSaveNote={handleSaveNote}
+              onScheduleFollowUp={handleScheduleFollowUp}
               activities={selectedLeadActivities}
               invoices={selectedLeadInvoices}
               emails={selectedLeadEmails}

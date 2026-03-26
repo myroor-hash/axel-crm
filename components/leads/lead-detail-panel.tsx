@@ -20,6 +20,7 @@ export function LeadDetailPanel({
   readOnlyState,
   onRecordActivity,
   onSaveNote,
+  onScheduleFollowUp,
   activities,
   invoices,
   emails,
@@ -36,6 +37,7 @@ export function LeadDetailPanel({
     followUpAt?: string
   ) => void;
   onSaveNote: (leadId: string, noteText: string) => Promise<void>;
+  onScheduleFollowUp: (leadId: string, followUpAt: string) => Promise<void>;
   activities: Activity[];
   invoices: InvoiceSummary[];
   emails: LeadEmailSummary[];
@@ -49,6 +51,8 @@ export function LeadDetailPanel({
   const [showAllActivities, setShowAllActivities] = useState(false);
   const [noteError, setNoteError] = useState<string | null>(null);
   const [isSavingNote, setIsSavingNote] = useState(false);
+  const [followUpError, setFollowUpError] = useState<string | null>(null);
+  const [isSavingFollowUp, setIsSavingFollowUp] = useState(false);
   const [isRecordingOutcome, setIsRecordingOutcome] = useState(false);
   const [showNoAnswerPrompt, setShowNoAnswerPrompt] = useState(false);
   const noteInputRef = useRef<HTMLTextAreaElement | null>(null);
@@ -100,6 +104,7 @@ export function LeadDetailPanel({
     if (isReadOnly || isRecordingOutcome) return;
 
     setNoteError(null);
+    setFollowUpError(null);
     setShowNoAnswerPrompt(false);
 
     if (action === "Send Info") {
@@ -151,6 +156,32 @@ export function LeadDetailPanel({
       );
     } finally {
       setIsSavingNote(false);
+    }
+  }
+
+  async function handleSaveFollowUp() {
+    if (isReadOnly || isSavingFollowUp) return;
+
+    if (!manualFollowUpAt) {
+      setFollowUpError("Please choose a follow-up date and time before saving it.");
+      return;
+    }
+
+    setIsSavingFollowUp(true);
+    setFollowUpError(null);
+
+    try {
+      await onScheduleFollowUp(
+        activeLead.id,
+        new Date(manualFollowUpAt).toISOString()
+      );
+      setManualFollowUpAt("");
+    } catch (error) {
+      setFollowUpError(
+        error instanceof Error ? error.message : "Unable to save follow-up."
+      );
+    } finally {
+      setIsSavingFollowUp(false);
     }
   }
 
@@ -401,16 +432,26 @@ export function LeadDetailPanel({
         <div className="mt-4">
           <div className="flex items-center justify-between gap-3">
             <p className="text-xs uppercase text-slate-500">Manual Follow-Up</p>
-            {manualFollowUpAt ? (
+            <div className="flex items-center gap-3">
+              {manualFollowUpAt ? (
+                <button
+                  type="button"
+                  disabled={isReadOnly}
+                  onClick={() => setManualFollowUpAt("")}
+                  className="text-xs font-medium text-slate-500 transition hover:text-slate-900 disabled:opacity-50"
+                >
+                  Clear
+                </button>
+              ) : null}
               <button
                 type="button"
-                disabled={isReadOnly}
-                onClick={() => setManualFollowUpAt("")}
-                className="text-xs font-medium text-slate-500 transition hover:text-slate-900 disabled:opacity-50"
+                onClick={handleSaveFollowUp}
+                disabled={isReadOnly || isSavingFollowUp}
+                className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-900 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                Clear
+                {isSavingFollowUp ? "Saving..." : "Commit Follow Up"}
               </button>
-            ) : null}
+            </div>
           </div>
           <input
             type="datetime-local"
@@ -422,6 +463,9 @@ export function LeadDetailPanel({
           <p className="mt-2 text-xs text-slate-500">
             Use this when a buyer asks for a callback at a specific date and time.
           </p>
+          {followUpError ? (
+            <p className="mt-2 text-sm font-medium text-red-700">{followUpError}</p>
+          ) : null}
         </div>
 
         <div className="mt-3 flex flex-wrap gap-2">

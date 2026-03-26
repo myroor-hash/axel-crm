@@ -544,6 +544,40 @@ export async function recordLeadNote(args: {
   });
 }
 
+export async function scheduleLeadFollowUp(args: {
+  leadId: string;
+  followUpAt: string;
+  previousStatus?: LeadStatus | null;
+}): Promise<{
+  status: LeadStatus;
+  nextFollowUpAt: string;
+}> {
+  const response = await fetch("/api/leads/follow-up", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(args),
+  });
+
+  const payload = (await response.json().catch(() => null)) as
+    | {
+        error?: string;
+        status?: LeadStatus;
+        nextFollowUpAt?: string;
+      }
+    | null;
+
+  if (!response.ok || payload?.status !== "follow_up_required" || !payload?.nextFollowUpAt) {
+    throw new Error(payload?.error ?? "Failed to save follow-up.");
+  }
+
+  return {
+    status: payload.status,
+    nextFollowUpAt: payload.nextFollowUpAt,
+  };
+}
+
 export async function importCustomers(args: {
   rows: ImportedLeadRow[];
   leadSourceId: string;

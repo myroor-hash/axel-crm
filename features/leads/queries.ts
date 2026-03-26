@@ -195,7 +195,7 @@ function businessNamesMatch(left: string | null | undefined, right: string | nul
   );
 }
 
-export async function fetchLeadQueue(): Promise<LeadQueueItem[]> {
+export async function fetchLeadQueue(): Promise<LeadQueueView[]> {
   const queueEndpoint = "/api/leads/queue" as string;
   const response = await fetch(queueEndpoint, {
     method: "GET",

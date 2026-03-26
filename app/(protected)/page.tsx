@@ -300,20 +300,35 @@ export default function ProtectedHomePage() {
       setBaseQueue(rows);
 
       const targetLeadId = preferredLeadId ?? selectedLeadId;
+      const activeTabRows = rows.filter((lead) => lead.queue_bucket === queueTab);
       if (rows.length === 0) {
         setSelectedLeadId(null);
-        return;
+        return rows;
       }
 
-      if (targetLeadId && rows.some((lead) => lead.id === targetLeadId)) {
+      if (
+        targetLeadId &&
+        activeTabRows.some((lead) => lead.id === targetLeadId)
+      ) {
         setSelectedLeadId(targetLeadId);
-        return;
+        return rows;
       }
 
-      const firstUnlocked = rows.find((lead) => !lead.is_locked);
-      setSelectedLeadId(firstUnlocked?.id ?? rows[0].id);
+      if (preferredLeadId) {
+        setSelectedLeadId(null);
+        return rows;
+      }
+
+      if (activeTabRows.length === 0) {
+        setSelectedLeadId(null);
+        return rows;
+      }
+
+      const firstUnlocked = activeTabRows.find((lead) => !lead.is_locked);
+      setSelectedLeadId(firstUnlocked?.id ?? activeTabRows[0].id);
+      return rows;
     },
-    [selectedLeadId]
+    [queueTab, selectedLeadId]
   );
 
   async function handleRecordActivity(

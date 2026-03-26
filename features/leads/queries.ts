@@ -789,7 +789,6 @@ export async function recordCallOutcome(args: {
   noteText?: string;
   previousStatus?: LeadStatus | null;
   manualFollowUpAt?: string | null;
-  existingFollowUpAt?: string | null;
 }): Promise<{
   status: LeadStatus;
   lastContactedAt: string;
@@ -798,18 +797,15 @@ export async function recordCallOutcome(args: {
   const supabase = createBrowserSupabaseClient();
   const now = new Date().toISOString();
   const mapped = mapCallAction(args.actionLabel);
-  const preservedFollowUpAt =
-    mapped.status === "customer" ? null : args.existingFollowUpAt ?? null;
-  const nextFollowUpAt =
-    args.manualFollowUpAt ?? mapped.followUpAt ?? preservedFollowUpAt;
+  const nextFollowUpAt = args.manualFollowUpAt ?? mapped.followUpAt ?? null;
   const status =
-    args.manualFollowUpAt && mapped.status !== "customer" && mapped.status !== "information_sent"
-      ? "follow_up_required"
-      : nextFollowUpAt &&
-          mapped.status !== "customer" &&
-          mapped.status !== "information_sent"
-      ? "follow_up_required"
-      : mapped.status;
+    mapped.status === "customer"
+      ? "customer"
+      : mapped.status === "information_sent"
+        ? "information_sent"
+        : nextFollowUpAt
+          ? "follow_up_required"
+          : mapped.status;
 
   const { error: updateError } = await supabase
     .from("leads")

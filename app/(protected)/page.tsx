@@ -328,8 +328,6 @@ export default function ProtectedHomePage() {
       noteText: note,
       previousStatus: selectedLead?.status ?? null,
       manualFollowUpAt: followUpAt ?? null,
-      existingFollowUpAt:
-        selectedLead?.id === leadId ? selectedLead.next_follow_up_at ?? null : null,
     });
 
     setLastActionMap((prev) => ({

@@ -48,6 +48,7 @@ type QueueEmailRow = {
 };
 
 const INVOICE_PAGE_SIZE = 1000;
+const UK_TIME_ZONE = "Europe/London";
 
 function buildContactName(lead: {
   contact_name?: string | null;
@@ -109,6 +110,34 @@ function businessNamesMatch(left: string | null | undefined, right: string | nul
   );
 }
 
+function getLondonDateKey(value: string | Date | null | undefined) {
+  if (!value) {
+    return null;
+  }
+
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: UK_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
+
+  const year = parts.find((part) => part.type === "year")?.value;
+  const month = parts.find((part) => part.type === "month")?.value;
+  const day = parts.find((part) => part.type === "day")?.value;
+
+  if (!year || !month || !day) {
+    return null;
+  }
+
+  return `${year}-${month}-${day}`;
+}
+
 async function fetchAllInvoiceRows(supabase: ReturnType<typeof createAdminSupabaseClient>) {
   const rows: QueueInvoiceRow[] = [];
   let from = 0;
@@ -149,7 +178,9 @@ export async function GET() {
   }
 
   const supabase = createAdminSupabaseClient();
-  const now = new Date().toISOString();
+  const now = new Date();
+  const nowIso = now.toISOString();
+  const todayKey = getLondonDateKey(now);
 
   const [
     { data: leads, error: leadsError },
@@ -167,7 +198,7 @@ export async function GET() {
       .select("lead_id, user_id")
       .eq("is_active", true)
       .is("released_at", null)
-      .gt("expires_at", now),
+      .gt("expires_at", nowIso),
     supabase
       .from("lead_emails")
       .select("lead_id, clicked_at")
@@ -284,6 +315,7 @@ export async function GET() {
       const lastActivityAt = latestActivityMap.get(lead.id)?.created_at ?? null;
       const lastActivityLabel = latestActivityMap.get(lead.id)?.action_label ?? null;
       const followUpAt = lead.next_follow_up_at ?? null;
+      const followUpDateKey = getLondonDateKey(followUpAt);
       const hasContactHistory = Boolean(
         lead.last_contacted_at || lead.last_outcome || lastActivityAt
       );
@@ -301,24 +333,32 @@ export async function GET() {
             lead.shop_name
           )
         );
+      const followUpAvailable =
+        Boolean(followUpDateKey && todayKey && followUpDateKey <= todayKey);
       const followUpDue =
-        Boolean(followUpAt) && new Date(followUpAt as string).getTime() <= Date.now();
+        Boolean(followUpAt) && new Date(followUpAt as string).getTime() <= now.getTime();
 
       let statusBadge = "Not Contacted";
-      if (followUpDue) {
-        statusBadge = "Follow Up Due";
+      if (followUpAvailable) {
+        if (followUpDue) {
+          statusBadge = "Follow Up Due";
+        } else if (followUpDateKey === todayKey) {
+          statusBadge = "Follow Up Today";
+        } else {
+          statusBadge = "Overdue Follow Up";
+        }
       } else if (followUpAt) {
-        statusBadge = "Follow Up Scheduled";
+        statusBadge = "Follow Up Booked";
       } else if (hasContactHistory) {
         statusBadge = "Contacted";
       }
 
       let queueBucket: LeadQueueView["queue_bucket"] = "other";
-      if (followUpAt) {
+      if (followUpAvailable) {
         queueBucket = "follow_up";
       } else if (hasInvoiceHistory) {
         queueBucket = "existing";
-      } else if (!hasContactHistory) {
+      } else {
         queueBucket = "new_leads";
       }
 
@@ -343,6 +383,7 @@ export async function GET() {
         locked_by_name: lockMap.get(lead.id) ?? null,
         computed_has_contact_history: hasContactHistory,
         computed_follow_up_at: followUpAt,
+        computed_follow_up_available: followUpAvailable,
         computed_follow_up_due: followUpDue,
         computed_status_badge: statusBadge,
         queue_bucket: queueBucket,

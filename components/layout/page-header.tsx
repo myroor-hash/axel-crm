@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ReactNode } from "react";
 import { AdminNavLink } from "@/components/layout/admin-nav-link";
+import { ServerClock } from "@/components/layout/server-clock";
 
 export function PageHeader({
   title,
@@ -17,9 +18,12 @@ export function PageHeader({
     <div className="space-y-2">
       <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
         <div>
-          <p className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-500">
-            Axels CRM - lets get busy...
-          </p>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <p className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-500">
+              Axels CRM - lets get busy...
+            </p>
+            <ServerClock />
+          </div>
           <div className="mt-2 flex flex-wrap items-center gap-3 text-sm font-medium text-slate-600">
             <Link href="/" className="transition hover:text-slate-900 hover:underline hover:underline-offset-4">
               Home

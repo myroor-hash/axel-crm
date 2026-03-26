@@ -2,6 +2,7 @@ import type { LeadQueueItem } from "@/features/leads/types";
 
 type QueueLead = LeadQueueItem & {
   computed_follow_up_at?: string | null;
+  computed_follow_up_available?: boolean;
   computed_follow_up_due?: boolean;
   computed_status_badge?: string;
   queue_bucket?: "existing" | "follow_up" | "new_leads" | "other";
@@ -101,6 +102,8 @@ export function LeadList({
               className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ${
                 row.computed_follow_up_due
                   ? "border border-emerald-300 bg-emerald-50 text-emerald-900"
+                  : row.computed_follow_up_available
+                    ? "border border-amber-300 bg-amber-50 text-amber-900"
                   : "border border-slate-200 bg-slate-50 text-slate-700"
               }`}
             >

@@ -60,7 +60,7 @@ const QUEUE_TAB_META: Record<
   },
   follow_up: {
     title: "Follow Up",
-    description: "These leads have a scheduled callback and need action.",
+    description: "These leads are due today or overdue for a callback.",
   },
   new_leads: {
     title: "New Leads (No Sales)",
@@ -554,9 +554,9 @@ export default function ProtectedHomePage() {
             </span>
           </div>
           <div className="text-center text-sm text-slate-600">
-            Follow Ups :{" "}
+            Follow Ups Due :{" "}
             <span className="text-base font-semibold text-slate-900">
-              {queue.filter((lead) => Boolean(lead.computed_follow_up_at)).length}
+              {followUpQueueCount}
             </span>
           </div>
           <div className="text-center text-sm text-slate-600">

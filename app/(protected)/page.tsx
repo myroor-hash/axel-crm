@@ -595,7 +595,6 @@ export default function ProtectedHomePage() {
 
   function handleOpenPreparedEmail() {
     setPanelMode("email");
-    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   async function handlePreparedEmailSend(payload: {
@@ -851,21 +850,22 @@ export default function ProtectedHomePage() {
               invoices={selectedLeadInvoices}
               emails={selectedLeadEmails}
               lastAction={selectedLeadLastAction}
-              onOpenPreparedEmail={handleOpenPreparedEmail}
-              emailComposer={
-                panelMode === "email" && selectedLead ? (
-                  <EmailComposePanel
+            onOpenPreparedEmail={handleOpenPreparedEmail}
+            emailComposer={
+              panelMode === "email" && selectedLead ? (
+                <EmailComposePanel
                     lead={selectedLead}
                     attachments={attachments}
                     onCancel={() => setPanelMode("lead")}
                     onSend={handlePreparedEmailSend}
                     embedded
-                  />
-                ) : null
-              }
-            />
-          </div>
-        </section>
+                />
+              ) : null
+            }
+            isEmailComposerOpen={panelMode === "email"}
+          />
+        </div>
+      </section>
       </div>
     </main>
   );

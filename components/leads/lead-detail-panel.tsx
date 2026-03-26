@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import type {
   InvoiceSummary,
   LeadDetail,
@@ -27,6 +27,7 @@ export function LeadDetailPanel({
   lastAction,
   onOpenPreparedEmail,
   emailComposer,
+  isEmailComposerOpen = false,
 }: {
   lead: LeadDetail | null;
   readOnlyState: LeadReadOnlyState | null;
@@ -44,6 +45,7 @@ export function LeadDetailPanel({
   lastAction: string | null;
   onOpenPreparedEmail: (leadId: string) => void;
   emailComposer?: ReactNode;
+  isEmailComposerOpen?: boolean;
 }) {
   const [note, setNote] = useState("");
   const [manualFollowUpAt, setManualFollowUpAt] = useState("");
@@ -53,10 +55,23 @@ export function LeadDetailPanel({
   const [isSavingFollowUp, setIsSavingFollowUp] = useState(false);
   const [isRecordingOutcome, setIsRecordingOutcome] = useState(false);
   const [showNoAnswerPrompt, setShowNoAnswerPrompt] = useState(false);
+  const [showNotes, setShowNotes] = useState(false);
   const [showInvoices, setShowInvoices] = useState(false);
   const [showEmailHistory, setShowEmailHistory] = useState(false);
   const [showActivities, setShowActivities] = useState(false);
   const noteInputRef = useRef<HTMLTextAreaElement | null>(null);
+  const emailSectionRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!lead || !isEmailComposerOpen || !emailSectionRef.current) {
+      return;
+    }
+
+    emailSectionRef.current.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  }, [isEmailComposerOpen, lead]);
 
   if (!lead) {
     return (
@@ -276,10 +291,6 @@ export function LeadDetailPanel({
               .join(", ") || "—"}
           </p>
         </div>
-        <div className="mt-3 border-t border-slate-200 pt-3">
-          <p className="text-xs uppercase text-slate-500">Priority Note</p>
-          <p className="font-medium text-slate-900">{activeLead.priority_note ?? "—"}</p>
-        </div>
       </div>
 
       <div className="mt-6 border-t pt-6">
@@ -377,6 +388,46 @@ export function LeadDetailPanel({
       </div>
 
       <div className="mt-6 border-t pt-6">
+        {renderCollapsibleHeader(
+          "Notes",
+          note.trim() ? "Draft note ready to save" : "Open to add a lead note",
+          showNotes,
+          () => setShowNotes((prev) => !prev)
+        )}
+        {showNotes ? (
+          <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-4">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+                Lead Note
+              </p>
+              <button
+                type="button"
+                onClick={handleSaveNote}
+                disabled={isReadOnly || isSavingNote}
+                className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-900 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {isSavingNote ? "Saving..." : "Commit Note"}
+              </button>
+            </div>
+
+            <textarea
+              ref={noteInputRef}
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              disabled={isReadOnly}
+              className="mt-3 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-500 disabled:opacity-50"
+              rows={3}
+              placeholder="Add a note for this lead..."
+            />
+
+            {noteError ? (
+              <p className="mt-2 text-sm font-medium text-red-700">{noteError}</p>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
+
+      <div className="mt-6 border-t pt-6">
         <div className={sectionHeaderClass}>Manual Follow-Up</div>
         <div>
           <div className="flex items-center justify-between gap-3">
@@ -418,40 +469,7 @@ export function LeadDetailPanel({
         </div>
       </div>
 
-      <div className="mt-6 border-t pt-6">
-        <div className={sectionHeaderClass}>Notes</div>
-        <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4">
-          <div className="flex items-center justify-between gap-3">
-            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
-              Lead Note
-            </p>
-            <button
-              type="button"
-              onClick={handleSaveNote}
-              disabled={isReadOnly || isSavingNote}
-              className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-900 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {isSavingNote ? "Saving..." : "Commit Note"}
-            </button>
-          </div>
-
-          <textarea
-            ref={noteInputRef}
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            disabled={isReadOnly}
-            className="mt-3 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-500 disabled:opacity-50"
-            rows={3}
-            placeholder="Add a note for this lead..."
-          />
-
-          {noteError ? (
-            <p className="mt-2 text-sm font-medium text-red-700">{noteError}</p>
-          ) : null}
-        </div>
-      </div>
-
-      <div className="mt-6 border-t pt-6">
+      <div ref={emailSectionRef} className="mt-6 border-t pt-6">
         <div className={sectionHeaderClass}>Email</div>
         {!emailComposer ? (
           <p className="text-sm text-slate-500">

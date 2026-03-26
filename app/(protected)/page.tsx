@@ -47,6 +47,7 @@ type ContactState = {
 
 type PanelMode = "lead" | "email";
 type QueueTab = "existing" | "follow_up" | "new_leads";
+const UK_TIME_ZONE = "Europe/London";
 
 const QUEUE_TAB_META: Record<
   QueueTab,
@@ -79,6 +80,51 @@ function mapDbActivities(rows: DbActivity[]): Activity[] {
     note: row.note_text ?? undefined,
     actorName: row.actor_name ?? undefined,
   }));
+}
+
+function getLondonDateKey(value: string | Date | null | undefined) {
+  if (!value) {
+    return null;
+  }
+
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: UK_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
+
+  const year = parts.find((part) => part.type === "year")?.value;
+  const month = parts.find((part) => part.type === "month")?.value;
+  const day = parts.find((part) => part.type === "day")?.value;
+
+  if (!year || !month || !day) {
+    return null;
+  }
+
+  return `${year}-${month}-${day}`;
+}
+
+function mapActionToOutcome(action: string) {
+  switch (action) {
+    case "No Answer":
+      return "no_answer";
+    case "Gatekeeper":
+      return "gatekeeper_only";
+    case "Spoke to Buyer":
+      return "spoke_to_buyer";
+    case "Send Info":
+      return "send_information";
+    case "Ordered Broth Bites":
+      return "converted_to_customer";
+    default:
+      return null;
+  }
 }
 
 export default function ProtectedHomePage() {
@@ -381,6 +427,54 @@ export default function ProtectedHomePage() {
           }
         : prev
     );
+
+    setBaseQueue((prev) => {
+      const now = new Date();
+      const todayKey = getLondonDateKey(now);
+
+      return prev.map((lead) => {
+        if (lead.id !== leadId) {
+          return lead;
+        }
+
+        const nextFollowUpAt = result.nextFollowUpAt ?? null;
+        const followUpDateKey = getLondonDateKey(nextFollowUpAt);
+        const followUpAvailable = Boolean(
+          followUpDateKey && todayKey && followUpDateKey <= todayKey
+        );
+        const followUpDue = Boolean(
+          nextFollowUpAt && new Date(nextFollowUpAt).getTime() <= now.getTime()
+        );
+
+        const computedStatusBadge = followUpAvailable
+          ? followUpDue
+            ? "Follow Up Due"
+            : "Follow Up Today"
+          : nextFollowUpAt
+            ? "Follow Up Booked"
+            : "Contacted";
+
+        const queueBucket = followUpAvailable
+          ? "follow_up"
+          : lead.has_invoice_history
+            ? "existing"
+            : "new_leads";
+
+        return {
+          ...lead,
+          status: result.status,
+          last_outcome: mapActionToOutcome(action),
+          last_contacted_at: result.lastContactedAt,
+          next_follow_up_at: nextFollowUpAt,
+          computed_has_contact_history: true,
+          computed_follow_up_at: nextFollowUpAt,
+          computed_follow_up_available: followUpAvailable,
+          computed_follow_up_due: followUpDue,
+          computed_status_badge: computedStatusBadge,
+          queue_bucket: queueBucket,
+        };
+      });
+    });
 
     await refreshQueue(leadId);
     const refreshedActivities = await fetchLeadActivities(leadId);

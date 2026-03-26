@@ -11,6 +11,13 @@ type SendEmailPayload = {
   attachmentName: string;
 };
 
+type SendEmailResponse = {
+  emailId: string | null;
+  providerMessageId: string;
+  senderName: string;
+  warning?: string;
+};
+
 function escapeHtml(value: string) {
   return value
     .replace(/&/g, "&amp;")
@@ -121,16 +128,15 @@ export async function POST(request: Request) {
     error = fallbackResult.error;
   }
 
-  if (error) {
-    return NextResponse.json(
-      { error: `Email sent, but failed to save CRM record: ${error.message}` },
-      { status: 500 }
-    );
-  }
-
-  return NextResponse.json({
-    emailId: data?.id ?? null,
+  const responseBody: SendEmailResponse = {
+    emailId: typeof data?.id === "string" ? data.id : null,
     providerMessageId: responseData.id,
     senderName,
-  });
+  };
+
+  if (error) {
+    responseBody.warning = `Email sent, but failed to save CRM record: ${error.message}`;
+  }
+
+  return NextResponse.json(responseBody);
 }

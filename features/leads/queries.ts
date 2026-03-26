@@ -380,6 +380,7 @@ export async function sendLeadEmail(args: {
   attachmentName: string;
 }): Promise<{
   senderName: string | null;
+  warning?: string | null;
 }> {
   const response = await fetch("/api/email/send", {
     method: "POST",
@@ -390,7 +391,7 @@ export async function sendLeadEmail(args: {
   });
 
   const payload = (await response.json().catch(() => null)) as
-    | { error?: string; senderName?: string | null }
+    | { error?: string; senderName?: string | null; warning?: string | null }
     | null;
 
   if (!response.ok) {
@@ -402,29 +403,28 @@ export async function sendLeadEmail(args: {
       typeof payload?.senderName === "string" && payload.senderName.trim()
         ? payload.senderName
         : null,
+    warning:
+      typeof payload?.warning === "string" && payload.warning.trim()
+        ? payload.warning
+        : null,
   };
 }
 
 export async function fetchCallsTodayCount(): Promise<number> {
-  const supabase = createBrowserSupabaseClient();
-  const startOfDay = new Date();
-  startOfDay.setHours(0, 0, 0, 0);
+  const response = await fetch("/api/leads/calls-today", {
+    method: "GET",
+    cache: "no-store",
+  });
 
-  const endOfDay = new Date(startOfDay);
-  endOfDay.setDate(endOfDay.getDate() + 1);
+  const payload = (await response.json().catch(() => null)) as
+    | { count?: number; error?: string }
+    | null;
 
-  const { count, error } = await supabase
-    .from("lead_activities")
-    .select("id", { count: "exact", head: true })
-    .eq("activity_type", "call")
-    .gte("created_at", startOfDay.toISOString())
-    .lt("created_at", endOfDay.toISOString());
-
-  if (error) {
-    throw new Error(`Failed to load today's call count: ${error.message}`);
+  if (!response.ok) {
+    throw new Error(payload?.error ?? "Failed to load today's call count.");
   }
 
-  return count ?? 0;
+  return typeof payload?.count === "number" ? payload.count : 0;
 }
 
 export async function fetchLeadActivities(leadId: string): Promise<DbActivity[]> {

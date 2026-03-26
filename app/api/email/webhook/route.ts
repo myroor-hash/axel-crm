@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { Webhook } from "svix";
 import { createAdminSupabaseClient } from "@/lib/db/admin";
 
 type ResendWebhookPayload = {
@@ -47,8 +48,39 @@ function mapWebhookTypeToUpdate(type: string, eventTime: string) {
 }
 
 export async function POST(request: Request) {
+  const webhookSecret = process.env.RESEND_WEBHOOK_SECRET;
+  if (!webhookSecret) {
+    return NextResponse.json(
+      { error: "Missing webhook secret configuration." },
+      { status: 500 }
+    );
+  }
+
   const rawPayload = await request.text();
-  const payload = JSON.parse(rawPayload) as ResendWebhookPayload;
+  const svixId = request.headers.get("svix-id");
+  const svixTimestamp = request.headers.get("svix-timestamp");
+  const svixSignature = request.headers.get("svix-signature");
+
+  if (!svixId || !svixTimestamp || !svixSignature) {
+    return NextResponse.json(
+      { error: "Missing webhook signature headers." },
+      { status: 401 }
+    );
+  }
+
+  let payload: ResendWebhookPayload;
+
+  try {
+    const webhook = new Webhook(webhookSecret);
+    payload = webhook.verify(rawPayload, {
+      "svix-id": svixId,
+      "svix-timestamp": svixTimestamp,
+      "svix-signature": svixSignature,
+    }) as ResendWebhookPayload;
+  } catch {
+    return NextResponse.json({ error: "Invalid webhook signature." }, { status: 401 });
+  }
+
   const eventType = payload.type ?? "";
   const providerMessageId = payload.data?.email_id ?? null;
   const eventTime =

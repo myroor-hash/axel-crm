@@ -736,53 +736,6 @@ export async function createManualLead(args: {
   }
 }
 
-function mapCallAction(action: string): {
-  status: LeadStatus;
-  callOutcome: string | null;
-  followUpAt: string | null;
-} {
-  const now = new Date();
-
-  switch (action) {
-    case "No Answer":
-      return {
-        status: "attempted_contact",
-        callOutcome: "no_answer",
-        followUpAt: null,
-      };
-    case "Gatekeeper":
-      return {
-        status: "attempted_contact",
-        callOutcome: "gatekeeper_only",
-        followUpAt: null,
-      };
-    case "Spoke to Buyer":
-      return {
-        status: "spoke_to_contact",
-        callOutcome: "spoke_to_buyer",
-        followUpAt: null,
-      };
-    case "Send Info":
-      return {
-        status: "information_sent",
-        callOutcome: "send_information",
-        followUpAt: new Date(now.getTime() + 72 * 60 * 60 * 1000).toISOString(),
-      };
-    case "Ordered Broth Bites":
-      return {
-        status: "customer",
-        callOutcome: "converted_to_customer",
-        followUpAt: null,
-      };
-    default:
-      return {
-        status: "attempted_contact",
-        callOutcome: null,
-        followUpAt: null,
-      };
-  }
-}
-
 export async function recordCallOutcome(args: {
   leadId: string;
   actionLabel: string;
@@ -794,48 +747,32 @@ export async function recordCallOutcome(args: {
   lastContactedAt: string;
   nextFollowUpAt: string | null;
 }> {
-  const supabase = createBrowserSupabaseClient();
-  const now = new Date().toISOString();
-  const mapped = mapCallAction(args.actionLabel);
-  const nextFollowUpAt = args.manualFollowUpAt ?? mapped.followUpAt ?? null;
-  const status =
-    mapped.status === "customer"
-      ? "customer"
-      : mapped.status === "information_sent"
-        ? "information_sent"
-        : nextFollowUpAt
-          ? "follow_up_required"
-          : mapped.status;
-
-  const { error: updateError } = await supabase
-    .from("leads")
-    .update({
-      status,
-      last_contacted_at: now,
-      next_follow_up_at: nextFollowUpAt,
-      last_outcome: mapped.callOutcome,
-    })
-    .eq("id", args.leadId);
-
-  if (updateError) {
-    throw new Error(`Failed to update lead after call: ${updateError.message}`);
-  }
-
-  await recordLeadActivity({
-    leadId: args.leadId,
-    activityType: "call",
-    actionLabel: args.actionLabel,
-    noteText: args.noteText,
-    callOutcome: mapped.callOutcome,
-    previousStatus: args.previousStatus ?? null,
-    newStatus: status,
-    followUpSetFor: nextFollowUpAt,
+  const response = await fetch("/api/leads/outcome", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(args),
   });
 
+  const payload = (await response.json().catch(() => null)) as
+    | {
+        error?: string;
+        status?: LeadStatus;
+        lastContactedAt?: string;
+        nextFollowUpAt?: string | null;
+      }
+    | null;
+
+  if (!response.ok || !payload?.status || !payload?.lastContactedAt) {
+    throw new Error(payload?.error ?? "Failed to update lead after call.");
+  }
+
   return {
-    status,
-    lastContactedAt: now,
-    nextFollowUpAt,
+    status: payload.status,
+    lastContactedAt: payload.lastContactedAt,
+    nextFollowUpAt:
+      typeof payload.nextFollowUpAt === "string" ? payload.nextFollowUpAt : null,
   };
 }
 

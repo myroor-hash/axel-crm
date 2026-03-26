@@ -49,6 +49,8 @@ export function LeadDetailPanel({
   const [showAllActivities, setShowAllActivities] = useState(false);
   const [noteError, setNoteError] = useState<string | null>(null);
   const [isSavingNote, setIsSavingNote] = useState(false);
+  const [isRecordingOutcome, setIsRecordingOutcome] = useState(false);
+  const [showNoAnswerPrompt, setShowNoAnswerPrompt] = useState(false);
   const noteInputRef = useRef<HTMLTextAreaElement | null>(null);
 
   if (!lead) {
@@ -71,17 +73,41 @@ export function LeadDetailPanel({
       .filter(Boolean)
       .join(" ") || "Unknown";
 
+  async function submitOutcome(action: string, followUpAt?: string) {
+    if (isReadOnly || isRecordingOutcome) return;
+
+    setIsRecordingOutcome(true);
+
+    try {
+      const trimmedNote = note.trim();
+
+      await onRecordActivity(
+        activeLead.id,
+        action,
+        trimmedNote || undefined,
+        followUpAt
+      );
+
+      setNote("");
+      setManualFollowUpAt("");
+      setShowNoAnswerPrompt(false);
+    } finally {
+      setIsRecordingOutcome(false);
+    }
+  }
+
   async function handleOutcome(action: string) {
-    if (isReadOnly) return;
+    if (isReadOnly || isRecordingOutcome) return;
 
     setNoteError(null);
+    setShowNoAnswerPrompt(false);
 
     if (action === "Send Info") {
       onOpenPreparedEmail(activeLead.id);
       return;
     }
 
-    let scheduledFollowUpAt = manualFollowUpAt
+    const scheduledFollowUpAt = manualFollowUpAt
       ? new Date(manualFollowUpAt).toISOString()
       : undefined;
     const trimmedNote = note.trim();
@@ -95,30 +121,11 @@ export function LeadDetailPanel({
     }
 
     if (action === "No Answer" && !scheduledFollowUpAt) {
-      const shouldReappoint = window.confirm(
-        "Reappoint this follow-up for 24 hours from now?"
-      );
-
-      if (shouldReappoint) {
-        scheduledFollowUpAt = new Date(
-          Date.now() + 24 * 60 * 60 * 1000
-        ).toISOString();
-      }
-    }
-
-    await onRecordActivity(
-      activeLead.id,
-      action,
-      trimmedNote || undefined,
-      scheduledFollowUpAt
-    );
-
-    setNote("");
-    setManualFollowUpAt("");
-
-    if (scheduledFollowUpAt) {
+      setShowNoAnswerPrompt(true);
       return;
     }
+
+    await submitOutcome(action, scheduledFollowUpAt);
   }
 
   async function handleSaveNote() {
@@ -420,7 +427,7 @@ export function LeadDetailPanel({
         <div className="mt-3 flex flex-wrap gap-2">
           <button
             type="button"
-            disabled={isReadOnly}
+            disabled={isReadOnly || isRecordingOutcome}
             onClick={() => handleOutcome("No Answer")}
             className={outcomeButtonClass("No Answer")}
           >
@@ -429,7 +436,7 @@ export function LeadDetailPanel({
 
           <button
             type="button"
-            disabled={isReadOnly}
+            disabled={isReadOnly || isRecordingOutcome}
             onClick={() => handleOutcome("Gatekeeper")}
             className={outcomeButtonClass("Gatekeeper")}
           >
@@ -438,7 +445,7 @@ export function LeadDetailPanel({
 
           <button
             type="button"
-            disabled={isReadOnly}
+            disabled={isReadOnly || isRecordingOutcome}
             onClick={() => handleOutcome("Spoke to Buyer")}
             className={outcomeButtonClass("Spoke to Buyer")}
           >
@@ -447,7 +454,7 @@ export function LeadDetailPanel({
 
           <button
             type="button"
-            disabled={isReadOnly}
+            disabled={isReadOnly || isRecordingOutcome}
             onClick={() => handleOutcome("Send Info")}
             className={outcomeButtonClass("Send Info")}
           >
@@ -456,13 +463,55 @@ export function LeadDetailPanel({
 
           <button
             type="button"
-            disabled={isReadOnly}
+            disabled={isReadOnly || isRecordingOutcome}
             onClick={() => handleOutcome("Ordered Broth Bites")}
             className={outcomeButtonClass("Ordered Broth Bites")}
           >
             Ordered Broth Bites
           </button>
         </div>
+
+        {showNoAnswerPrompt ? (
+          <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-slate-800">
+            <p className="font-medium text-slate-900">
+              Reappoint this follow-up for 24 hours from now?
+            </p>
+            <p className="mt-1 text-slate-600">
+              Choose whether to book a new callback, clear the existing follow-up, or cancel.
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button
+                type="button"
+                disabled={isRecordingOutcome}
+                onClick={() =>
+                  submitOutcome(
+                    "No Answer",
+                    new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+                  )
+                }
+                className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-900 transition hover:bg-slate-50 disabled:opacity-50"
+              >
+                Reappoint 24 Hours
+              </button>
+              <button
+                type="button"
+                disabled={isRecordingOutcome}
+                onClick={() => submitOutcome("No Answer")}
+                className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-900 transition hover:bg-slate-50 disabled:opacity-50"
+              >
+                No Follow Up
+              </button>
+              <button
+                type="button"
+                disabled={isRecordingOutcome}
+                onClick={() => setShowNoAnswerPrompt(false)}
+                className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : null}
 
         {lastAction ? (
           <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">

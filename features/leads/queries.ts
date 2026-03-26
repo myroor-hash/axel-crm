@@ -526,6 +526,24 @@ export async function recordLeadActivity(args: {
   }
 }
 
+export async function recordLeadNote(args: {
+  leadId: string;
+  noteText: string;
+}): Promise<void> {
+  const trimmedNote = args.noteText.trim();
+
+  if (!trimmedNote) {
+    throw new Error("Please enter a note before saving it.");
+  }
+
+  await recordLeadActivity({
+    leadId: args.leadId,
+    activityType: "note",
+    actionLabel: "Note Added",
+    noteText: trimmedNote,
+  });
+}
+
 export async function importCustomers(args: {
   rows: ImportedLeadRow[];
   leadSourceId: string;
@@ -771,6 +789,7 @@ export async function recordCallOutcome(args: {
   noteText?: string;
   previousStatus?: LeadStatus | null;
   manualFollowUpAt?: string | null;
+  existingFollowUpAt?: string | null;
 }): Promise<{
   status: LeadStatus;
   lastContactedAt: string;
@@ -779,9 +798,16 @@ export async function recordCallOutcome(args: {
   const supabase = createBrowserSupabaseClient();
   const now = new Date().toISOString();
   const mapped = mapCallAction(args.actionLabel);
-  const nextFollowUpAt = args.manualFollowUpAt ?? mapped.followUpAt;
+  const preservedFollowUpAt =
+    mapped.status === "customer" ? null : args.existingFollowUpAt ?? null;
+  const nextFollowUpAt =
+    args.manualFollowUpAt ?? mapped.followUpAt ?? preservedFollowUpAt;
   const status =
     args.manualFollowUpAt && mapped.status !== "customer" && mapped.status !== "information_sent"
+      ? "follow_up_required"
+      : nextFollowUpAt &&
+          mapped.status !== "customer" &&
+          mapped.status !== "information_sent"
       ? "follow_up_required"
       : mapped.status;
 

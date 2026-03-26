@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import type {
   InvoiceSummary,
   LeadDetail,
@@ -19,6 +19,7 @@ export function LeadDetailPanel({
   lead,
   readOnlyState,
   onRecordActivity,
+  onSaveNote,
   activities,
   invoices,
   emails,
@@ -34,6 +35,7 @@ export function LeadDetailPanel({
     note?: string,
     followUpAt?: string
   ) => void;
+  onSaveNote: (leadId: string, noteText: string) => Promise<void>;
   activities: Activity[];
   invoices: InvoiceSummary[];
   emails: LeadEmailSummary[];
@@ -45,6 +47,9 @@ export function LeadDetailPanel({
   const [manualFollowUpAt, setManualFollowUpAt] = useState("");
   const [showAllEmails, setShowAllEmails] = useState(false);
   const [showAllActivities, setShowAllActivities] = useState(false);
+  const [noteError, setNoteError] = useState<string | null>(null);
+  const [isSavingNote, setIsSavingNote] = useState(false);
+  const noteInputRef = useRef<HTMLTextAreaElement | null>(null);
 
   if (!lead) {
     return (
@@ -69,19 +74,42 @@ export function LeadDetailPanel({
   async function handleOutcome(action: string) {
     if (isReadOnly) return;
 
+    setNoteError(null);
+
     if (action === "Send Info") {
       onOpenPreparedEmail(activeLead.id);
       return;
     }
 
-    const scheduledFollowUpAt = manualFollowUpAt
+    let scheduledFollowUpAt = manualFollowUpAt
       ? new Date(manualFollowUpAt).toISOString()
       : undefined;
+    const trimmedNote = note.trim();
+
+    if (action === "Gatekeeper" && !trimmedNote) {
+      const message = "Please add a note before recording Gatekeeper.";
+      setNoteError(message);
+      window.alert(message);
+      noteInputRef.current?.focus();
+      return;
+    }
+
+    if (action === "No Answer" && !scheduledFollowUpAt) {
+      const shouldReappoint = window.confirm(
+        "Reappoint this follow-up for 24 hours from now?"
+      );
+
+      if (shouldReappoint) {
+        scheduledFollowUpAt = new Date(
+          Date.now() + 24 * 60 * 60 * 1000
+        ).toISOString();
+      }
+    }
 
     await onRecordActivity(
       activeLead.id,
       action,
-      note || undefined,
+      trimmedNote || undefined,
       scheduledFollowUpAt
     );
 
@@ -90,6 +118,32 @@ export function LeadDetailPanel({
 
     if (scheduledFollowUpAt) {
       return;
+    }
+  }
+
+  async function handleSaveNote() {
+    if (isReadOnly || isSavingNote) return;
+
+    const trimmedNote = note.trim();
+    if (!trimmedNote) {
+      const message = "Please enter a note before saving it.";
+      setNoteError(message);
+      noteInputRef.current?.focus();
+      return;
+    }
+
+    setIsSavingNote(true);
+    setNoteError(null);
+
+    try {
+      await onSaveNote(activeLead.id, trimmedNote);
+      setNote("");
+    } catch (error) {
+      setNoteError(
+        error instanceof Error ? error.message : "Unable to save note."
+      );
+    } finally {
+      setIsSavingNote(false);
     }
   }
 
@@ -305,16 +359,37 @@ export function LeadDetailPanel({
       </div>
 
       <div className="mt-6 border-t pt-6">
-        <div className={sectionHeaderClass}>Note</div>
+        <div className={sectionHeaderClass}>Call Outcome</div>
 
-        <textarea
-          value={note}
-          onChange={(e) => setNote(e.target.value)}
-          disabled={isReadOnly}
-          className="mt-2 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm disabled:opacity-50"
-          rows={3}
-          placeholder="Optional note..."
-        />
+        <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+              Note
+            </p>
+            <button
+              type="button"
+              onClick={handleSaveNote}
+              disabled={isReadOnly || isSavingNote}
+              className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-900 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {isSavingNote ? "Saving..." : "Commit Note"}
+            </button>
+          </div>
+
+          <textarea
+            ref={noteInputRef}
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            disabled={isReadOnly}
+            className="mt-3 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-500 disabled:opacity-50"
+            rows={3}
+            placeholder="Add a note for this lead..."
+          />
+
+          {noteError ? (
+            <p className="mt-2 text-sm font-medium text-red-700">{noteError}</p>
+          ) : null}
+        </div>
 
         <div className="mt-4">
           <div className="flex items-center justify-between gap-3">
@@ -341,10 +416,6 @@ export function LeadDetailPanel({
             Use this when a buyer asks for a callback at a specific date and time.
           </p>
         </div>
-      </div>
-
-      <div className="mt-6 border-t pt-6">
-        <div className={sectionHeaderClass}>Call Outcome</div>
 
         <div className="mt-3 flex flex-wrap gap-2">
           <button

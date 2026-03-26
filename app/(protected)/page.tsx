@@ -16,6 +16,7 @@ import {
   fetchLeadQueue,
   recordCallOutcome,
   recordEmailSent,
+  recordLeadNote,
   sendLeadEmail,
   type DbActivity,
 } from "@/features/leads/queries";
@@ -327,6 +328,8 @@ export default function ProtectedHomePage() {
       noteText: note,
       previousStatus: selectedLead?.status ?? null,
       manualFollowUpAt: followUpAt ?? null,
+      existingFollowUpAt:
+        selectedLead?.id === leadId ? selectedLead.next_follow_up_at ?? null : null,
     });
 
     setLastActionMap((prev) => ({
@@ -355,6 +358,17 @@ export default function ProtectedHomePage() {
       };
     });
 
+    setSelectedLead((prev) =>
+      prev && prev.id === leadId
+        ? {
+            ...prev,
+            last_contacted_at: result.lastContactedAt,
+            next_follow_up_at: result.nextFollowUpAt,
+            status: result.status,
+          }
+        : prev
+    );
+
     await refreshQueue(leadId);
     const refreshedActivities = await fetchLeadActivities(leadId);
     const currentActorName = await fetchCurrentCrmActorName();
@@ -371,6 +385,27 @@ export default function ProtectedHomePage() {
     }));
     const count = await fetchCallsTodayCount();
     setCallsTodayCount(count);
+  }
+
+  async function handleSaveNote(leadId: string, noteText: string) {
+    await recordLeadNote({
+      leadId,
+      noteText,
+    });
+
+    const refreshedActivities = await fetchLeadActivities(leadId);
+    const currentActorName = await fetchCurrentCrmActorName();
+    const mappedActivities = mapDbActivities(refreshedActivities);
+    if (mappedActivities[0] && !mappedActivities[0].actorName && currentActorName) {
+      mappedActivities[0] = {
+        ...mappedActivities[0],
+        actorName: currentActorName,
+      };
+    }
+    setActivityMap((prev) => ({
+      ...prev,
+      [leadId]: mappedActivities,
+    }));
   }
 
   function handleOpenPreparedEmail() {
@@ -625,6 +660,7 @@ export default function ProtectedHomePage() {
               lead={selectedLead}
               readOnlyState={readOnlyState}
               onRecordActivity={handleRecordActivity}
+              onSaveNote={handleSaveNote}
               activities={selectedLeadActivities}
               invoices={selectedLeadInvoices}
               emails={selectedLeadEmails}

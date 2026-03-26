@@ -129,16 +129,6 @@ export function LeadDetailPanel({
     const scheduledFollowUpAt = manualFollowUpAt
       ? new Date(manualFollowUpAt).toISOString()
       : undefined;
-    const trimmedNote = note.trim();
-
-    if (action === "Gatekeeper" && !trimmedNote) {
-      const message = "Please add a note before recording Gatekeeper.";
-      setNoteError(message);
-      window.alert(message);
-      noteInputRef.current?.focus();
-      return;
-    }
-
     if (action === "No Answer" && !scheduledFollowUpAt) {
       setShowNoAnswerPrompt(true);
       return;
@@ -295,7 +285,7 @@ export function LeadDetailPanel({
 
       <div className="mt-6 border-t pt-6">
         <div className={sectionHeaderClass}>Call Outcome</div>
-        <div className="grid gap-2 md:grid-cols-5">
+        <div className="grid gap-2 md:grid-cols-4">
           <button
             type="button"
             disabled={isReadOnly || isRecordingOutcome}
@@ -303,14 +293,6 @@ export function LeadDetailPanel({
             className={`${outcomeButtonClass("No Answer")} w-full`}
           >
             No Answer
-          </button>
-          <button
-            type="button"
-            disabled={isReadOnly || isRecordingOutcome}
-            onClick={() => handleOutcome("Gatekeeper")}
-            className={`${outcomeButtonClass("Gatekeeper")} w-full`}
-          >
-            Gatekeeper
           </button>
           <button
             type="button"

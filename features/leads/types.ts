@@ -86,3 +86,10 @@ export interface LeadEmailSummary {
   clicked_at: string | null;
   status: string;
 }
+
+export interface LeadNoteSummary {
+  id: string;
+  note_text: string;
+  actor_name: string | null;
+  created_at: string;
+}

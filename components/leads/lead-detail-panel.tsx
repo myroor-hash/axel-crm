@@ -5,6 +5,7 @@ import type {
   InvoiceSummary,
   LeadDetail,
   LeadEmailSummary,
+  LeadNoteSummary,
 } from "@/features/leads/types";
 import type { LeadReadOnlyState } from "@/features/locks/types";
 
@@ -21,9 +22,11 @@ export function LeadDetailPanel({
   onRecordActivity,
   onSaveNote,
   onScheduleFollowUp,
+  onSaveLeadDetails,
   activities,
   invoices,
   emails,
+  notes,
   lastAction,
   onOpenPreparedEmail,
   emailComposer,
@@ -39,9 +42,26 @@ export function LeadDetailPanel({
   ) => void;
   onSaveNote: (leadId: string, noteText: string) => Promise<void>;
   onScheduleFollowUp: (leadId: string, followUpAt: string) => Promise<void>;
+  onSaveLeadDetails: (
+    leadId: string,
+    payload: {
+      shopName: string;
+      contactFirstName?: string | null;
+      contactLastName?: string | null;
+      phoneNumber: string;
+      email?: string | null;
+      addressLine1?: string | null;
+      addressLine2?: string | null;
+      addressLine3?: string | null;
+      townCity?: string | null;
+      countyRegion?: string | null;
+      postcode?: string | null;
+    }
+  ) => Promise<void>;
   activities: Activity[];
   invoices: InvoiceSummary[];
   emails: LeadEmailSummary[];
+  notes: LeadNoteSummary[];
   lastAction: string | null;
   onOpenPreparedEmail: (leadId: string) => void;
   emailComposer?: ReactNode;
@@ -56,9 +76,23 @@ export function LeadDetailPanel({
   const [isRecordingOutcome, setIsRecordingOutcome] = useState(false);
   const [showNoAnswerPrompt, setShowNoAnswerPrompt] = useState(false);
   const [showNotes, setShowNotes] = useState(false);
+  const [showEditDetails, setShowEditDetails] = useState(false);
   const [showInvoices, setShowInvoices] = useState(false);
   const [showEmailHistory, setShowEmailHistory] = useState(false);
   const [showActivities, setShowActivities] = useState(false);
+  const [shopName, setShopName] = useState("");
+  const [contactFirstName, setContactFirstName] = useState("");
+  const [contactLastName, setContactLastName] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
+  const [emailAddress, setEmailAddress] = useState("");
+  const [addressLine1, setAddressLine1] = useState("");
+  const [addressLine2, setAddressLine2] = useState("");
+  const [addressLine3, setAddressLine3] = useState("");
+  const [townCity, setTownCity] = useState("");
+  const [countyRegion, setCountyRegion] = useState("");
+  const [postCode, setPostCode] = useState("");
+  const [detailsError, setDetailsError] = useState<string | null>(null);
+  const [isSavingDetails, setIsSavingDetails] = useState(false);
   const noteInputRef = useRef<HTMLTextAreaElement | null>(null);
   const emailSectionRef = useRef<HTMLDivElement | null>(null);
 
@@ -72,6 +106,25 @@ export function LeadDetailPanel({
       block: "start",
     });
   }, [isEmailComposerOpen, lead]);
+
+  useEffect(() => {
+    if (!lead) {
+      return;
+    }
+
+    setShopName(lead.shop_name ?? "");
+    setContactFirstName(lead.contact_first_name ?? "");
+    setContactLastName(lead.contact_last_name ?? "");
+    setPhoneNumber(lead.phone_number ?? "");
+    setEmailAddress(lead.email ?? "");
+    setAddressLine1(lead.address_line_1 ?? "");
+    setAddressLine2(lead.address_line_2 ?? "");
+    setAddressLine3(lead.address_line_3 ?? "");
+    setTownCity(lead.town_city ?? "");
+    setCountyRegion(lead.county_region ?? "");
+    setPostCode(lead.postcode ?? "");
+    setDetailsError(null);
+  }, [lead]);
 
   if (!lead) {
     return (
@@ -189,6 +242,41 @@ export function LeadDetailPanel({
     }
   }
 
+  async function handleSaveDetails() {
+    if (isReadOnly || isSavingDetails) return;
+
+    if (!shopName.trim() || !phoneNumber.trim()) {
+      setDetailsError("Shop name and phone number are required.");
+      return;
+    }
+
+    setIsSavingDetails(true);
+    setDetailsError(null);
+
+    try {
+      await onSaveLeadDetails(activeLead.id, {
+        shopName,
+        contactFirstName,
+        contactLastName,
+        phoneNumber,
+        email: emailAddress,
+        addressLine1,
+        addressLine2,
+        addressLine3,
+        townCity,
+        countyRegion,
+        postcode: postCode,
+      });
+      setShowEditDetails(false);
+    } catch (error) {
+      setDetailsError(
+        error instanceof Error ? error.message : "Unable to update lead details."
+      );
+    } finally {
+      setIsSavingDetails(false);
+    }
+  }
+
   function outcomeButtonClass(action: string) {
     const isSelected = lastAction === action;
 
@@ -280,6 +368,124 @@ export function LeadDetailPanel({
               .filter(Boolean)
               .join(", ") || "—"}
           </p>
+        </div>
+
+        <div className="mt-4">
+          {renderCollapsibleHeader(
+            "Edit Details",
+            "Update contact, phone, email, or address",
+            showEditDetails,
+            () => setShowEditDetails((prev) => !prev)
+          )}
+          {showEditDetails ? (
+            <div className="mt-3 rounded-xl border border-slate-200 bg-white px-4 py-4">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <input
+                  type="text"
+                  value={shopName}
+                  onChange={(e) => setShopName(e.target.value)}
+                  disabled={isReadOnly || isSavingDetails}
+                  placeholder="Shop name"
+                  className="rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-900 disabled:opacity-50"
+                />
+                <input
+                  type="text"
+                  value={phoneNumber}
+                  onChange={(e) => setPhoneNumber(e.target.value)}
+                  disabled={isReadOnly || isSavingDetails}
+                  placeholder="Phone number"
+                  className="rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-900 disabled:opacity-50"
+                />
+                <input
+                  type="text"
+                  value={contactFirstName}
+                  onChange={(e) => setContactFirstName(e.target.value)}
+                  disabled={isReadOnly || isSavingDetails}
+                  placeholder="Contact first name"
+                  className="rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-900 disabled:opacity-50"
+                />
+                <input
+                  type="text"
+                  value={contactLastName}
+                  onChange={(e) => setContactLastName(e.target.value)}
+                  disabled={isReadOnly || isSavingDetails}
+                  placeholder="Contact last name"
+                  className="rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-900 disabled:opacity-50"
+                />
+                <input
+                  type="email"
+                  value={emailAddress}
+                  onChange={(e) => setEmailAddress(e.target.value)}
+                  disabled={isReadOnly || isSavingDetails}
+                  placeholder="Email address"
+                  className="rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-900 disabled:opacity-50 sm:col-span-2"
+                />
+                <input
+                  type="text"
+                  value={addressLine1}
+                  onChange={(e) => setAddressLine1(e.target.value)}
+                  disabled={isReadOnly || isSavingDetails}
+                  placeholder="Address line 1"
+                  className="rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-900 disabled:opacity-50 sm:col-span-2"
+                />
+                <input
+                  type="text"
+                  value={addressLine2}
+                  onChange={(e) => setAddressLine2(e.target.value)}
+                  disabled={isReadOnly || isSavingDetails}
+                  placeholder="Address line 2"
+                  className="rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-900 disabled:opacity-50 sm:col-span-2"
+                />
+                <input
+                  type="text"
+                  value={addressLine3}
+                  onChange={(e) => setAddressLine3(e.target.value)}
+                  disabled={isReadOnly || isSavingDetails}
+                  placeholder="Address line 3"
+                  className="rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-900 disabled:opacity-50 sm:col-span-2"
+                />
+                <input
+                  type="text"
+                  value={townCity}
+                  onChange={(e) => setTownCity(e.target.value)}
+                  disabled={isReadOnly || isSavingDetails}
+                  placeholder="Town / City"
+                  className="rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-900 disabled:opacity-50"
+                />
+                <input
+                  type="text"
+                  value={countyRegion}
+                  onChange={(e) => setCountyRegion(e.target.value)}
+                  disabled={isReadOnly || isSavingDetails}
+                  placeholder="County / Region"
+                  className="rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-900 disabled:opacity-50"
+                />
+                <input
+                  type="text"
+                  value={postCode}
+                  onChange={(e) => setPostCode(e.target.value)}
+                  disabled={isReadOnly || isSavingDetails}
+                  placeholder="Postcode"
+                  className="rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-900 disabled:opacity-50 sm:col-span-2"
+                />
+              </div>
+              <div className="mt-3 flex items-center justify-between gap-3">
+                {detailsError ? (
+                  <p className="text-sm font-medium text-red-700">{detailsError}</p>
+                ) : (
+                  <div />
+                )}
+                <button
+                  type="button"
+                  onClick={handleSaveDetails}
+                  disabled={isReadOnly || isSavingDetails}
+                  className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-900 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {isSavingDetails ? "Saving..." : "Save Details"}
+                </button>
+              </div>
+            </div>
+          ) : null}
         </div>
       </div>
 
@@ -404,6 +610,25 @@ export function LeadDetailPanel({
 
             {noteError ? (
               <p className="mt-2 text-sm font-medium text-red-700">{noteError}</p>
+            ) : null}
+
+            {notes.length > 0 ? (
+              <div className="mt-4 space-y-3 border-t border-slate-200 pt-4">
+                {notes.map((savedNote) => (
+                  <div
+                    key={savedNote.id}
+                    className="rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-900"
+                  >
+                    <div className="font-medium text-slate-900">
+                      {savedNote.actor_name ? `Note - ${savedNote.actor_name}` : "Note"}
+                    </div>
+                    <div className="mt-1 text-xs text-slate-500">
+                      {formatEventTime(savedNote.created_at) ?? "Unknown time"}
+                    </div>
+                    <div className="mt-1 text-slate-900">{savedNote.note_text}</div>
+                  </div>
+                ))}
+              </div>
             ) : null}
           </div>
         ) : null}

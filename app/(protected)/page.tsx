@@ -13,12 +13,14 @@ import {
   fetchLeadById,
   fetchLeadEmails,
   fetchLeadInvoices,
+  fetchLeadNotes,
   fetchLeadQueue,
   recordCallOutcome,
   recordEmailSent,
   recordLeadNote,
   scheduleLeadFollowUp,
   sendLeadEmail,
+  updateLeadDetails,
   type DbActivity,
 } from "@/features/leads/queries";
 import { getLeadReadOnlyState } from "@/features/locks/queries";
@@ -28,6 +30,7 @@ import type {
   InvoiceSummary,
   LeadDetail,
   LeadEmailSummary,
+  LeadNoteSummary,
   LeadQueueView,
 } from "@/features/leads/types";
 import type { LeadReadOnlyState } from "@/features/locks/types";
@@ -135,6 +138,7 @@ export default function ProtectedHomePage() {
   const [readOnlyState, setReadOnlyState] = useState<LeadReadOnlyState | null>(null);
   const [invoiceMap, setInvoiceMap] = useState<Record<string, InvoiceSummary[]>>({});
   const [emailMap, setEmailMap] = useState<Record<string, LeadEmailSummary[]>>({});
+  const [noteMap, setNoteMap] = useState<Record<string, LeadNoteSummary[]>>({});
   const [activityMap, setActivityMap] = useState<Record<string, Activity[]>>({});
   const [lastActionMap, setLastActionMap] = useState<Record<string, string | null>>({});
   const [, setContactStateMap] = useState<Record<string, ContactState>>({});
@@ -230,6 +234,22 @@ export default function ProtectedHomePage() {
 
     loadInvoices();
   }, [selectedLead, selectedLeadId]);
+
+  useEffect(() => {
+    async function loadNotes() {
+      if (!selectedLeadId) {
+        return;
+      }
+
+      const rows = await fetchLeadNotes(selectedLeadId);
+      setNoteMap((prev) => ({
+        ...prev,
+        [selectedLeadId]: rows,
+      }));
+    }
+
+    loadNotes();
+  }, [selectedLeadId]);
 
   useEffect(() => {
     async function loadEmails() {
@@ -505,18 +525,10 @@ export default function ProtectedHomePage() {
       noteText,
     });
 
-    const refreshedActivities = await fetchLeadActivities(leadId);
-    const currentActorName = await fetchCurrentCrmActorName();
-    const mappedActivities = mapDbActivities(refreshedActivities);
-    if (mappedActivities[0] && !mappedActivities[0].actorName && currentActorName) {
-      mappedActivities[0] = {
-        ...mappedActivities[0],
-        actorName: currentActorName,
-      };
-    }
-    setActivityMap((prev) => ({
+    const refreshedNotes = await fetchLeadNotes(leadId);
+    setNoteMap((prev) => ({
       ...prev,
-      [leadId]: mappedActivities,
+      [leadId]: refreshedNotes,
     }));
   }
 
@@ -676,6 +688,51 @@ export default function ProtectedHomePage() {
     setPanelMode("lead");
   }
 
+  async function handleSaveLeadDetails(
+    leadId: string,
+    payload: {
+      shopName: string;
+      contactFirstName?: string | null;
+      contactLastName?: string | null;
+      phoneNumber: string;
+      email?: string | null;
+      addressLine1?: string | null;
+      addressLine2?: string | null;
+      addressLine3?: string | null;
+      townCity?: string | null;
+      countyRegion?: string | null;
+      postcode?: string | null;
+    }
+  ) {
+    setPanelMode("lead");
+
+    await updateLeadDetails({
+      leadId,
+      ...payload,
+    });
+
+    const refreshedLead = await fetchLeadById(leadId);
+    setSelectedLead((prev) => (prev?.id === leadId ? refreshedLead : prev));
+
+    setBaseQueue((prev) =>
+      prev.map((lead) =>
+        lead.id === leadId
+          ? {
+              ...lead,
+              shop_name: payload.shopName,
+              contact_name:
+                [payload.contactFirstName, payload.contactLastName]
+                  .filter(Boolean)
+                  .join(" ") || null,
+              phone_number: payload.phoneNumber,
+              postcode: payload.postcode ?? null,
+              town_city: payload.townCity ?? null,
+            }
+          : lead
+      )
+    );
+  }
+
   function handleCallNextLead() {
     if (!selectedLeadId) {
       handleAdvanceLead();
@@ -704,6 +761,7 @@ export default function ProtectedHomePage() {
   const selectedLeadActivities = selectedLeadId ? activityMap[selectedLeadId] ?? [] : [];
   const selectedLeadInvoices = selectedLeadId ? invoiceMap[selectedLeadId] ?? [] : [];
   const selectedLeadEmails = selectedLeadId ? emailMap[selectedLeadId] ?? [] : [];
+  const selectedLeadNotes = selectedLeadId ? noteMap[selectedLeadId] ?? [] : [];
   const selectedLeadLastAction = selectedLeadId ? lastActionMap[selectedLeadId] ?? null : null;
 
   return (
@@ -852,9 +910,11 @@ export default function ProtectedHomePage() {
               onRecordActivity={handleRecordActivity}
               onSaveNote={handleSaveNote}
               onScheduleFollowUp={handleScheduleFollowUp}
+              onSaveLeadDetails={handleSaveLeadDetails}
               activities={selectedLeadActivities}
               invoices={selectedLeadInvoices}
               emails={selectedLeadEmails}
+              notes={selectedLeadNotes}
               lastAction={selectedLeadLastAction}
             onOpenPreparedEmail={handleOpenPreparedEmail}
             emailComposer={

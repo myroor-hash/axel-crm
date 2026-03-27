@@ -3,6 +3,7 @@ import type {
   InvoiceSummary,
   LeadDetail,
   LeadEmailSummary,
+  LeadNoteSummary,
   LeadQueueItem,
   LeadQueueView,
 } from "@/features/leads/types";
@@ -371,6 +372,29 @@ export async function fetchLeadEmails(leadId: string): Promise<LeadEmailSummary[
   }));
 }
 
+export async function fetchLeadNotes(leadId: string): Promise<LeadNoteSummary[]> {
+  const response = await fetch(`/api/leads/notes?leadId=${encodeURIComponent(leadId)}`, {
+    method: "GET",
+    cache: "no-store",
+  });
+
+  const payload = (await response.json().catch(() => null)) as
+    | { rows?: Array<Record<string, unknown>>; error?: string }
+    | null;
+
+  if (!response.ok) {
+    throw new Error(payload?.error ?? "Failed to load lead notes.");
+  }
+
+  return ((payload?.rows ?? []) as Array<Record<string, unknown>>).map((row) => ({
+    id: String(row.id),
+    note_text: typeof row.note_text === "string" ? row.note_text : "",
+    actor_name: typeof row.actor_name === "string" ? row.actor_name : null,
+    created_at:
+      typeof row.created_at === "string" ? row.created_at : new Date().toISOString(),
+  }));
+}
+
 export async function sendLeadEmail(args: {
   leadId: string;
   to: string;
@@ -434,6 +458,7 @@ export async function fetchLeadActivities(leadId: string): Promise<DbActivity[]>
     .from("lead_activities")
     .select("id, lead_id, user_id, actor_name, activity_type, action_label, note_text, created_at")
     .eq("lead_id", leadId)
+    .neq("activity_type", "note")
     .order("created_at", { ascending: false });
 
   if (error) {
@@ -536,12 +561,55 @@ export async function recordLeadNote(args: {
     throw new Error("Please enter a note before saving it.");
   }
 
-  await recordLeadActivity({
-    leadId: args.leadId,
-    activityType: "note",
-    actionLabel: "Note Added",
-    noteText: trimmedNote,
+  const response = await fetch("/api/leads/notes", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      leadId: args.leadId,
+      noteText: trimmedNote,
+    }),
   });
+
+  const payload = (await response.json().catch(() => null)) as
+    | { error?: string }
+    | null;
+
+  if (!response.ok) {
+    throw new Error(payload?.error ?? "Failed to save note.");
+  }
+}
+
+export async function updateLeadDetails(args: {
+  leadId: string;
+  shopName: string;
+  contactFirstName?: string | null;
+  contactLastName?: string | null;
+  phoneNumber: string;
+  email?: string | null;
+  addressLine1?: string | null;
+  addressLine2?: string | null;
+  addressLine3?: string | null;
+  townCity?: string | null;
+  countyRegion?: string | null;
+  postcode?: string | null;
+}): Promise<void> {
+  const response = await fetch("/api/leads/update", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(args),
+  });
+
+  const payload = (await response.json().catch(() => null)) as
+    | { error?: string }
+    | null;
+
+  if (!response.ok) {
+    throw new Error(payload?.error ?? "Failed to update lead details.");
+  }
 }
 
 export async function scheduleLeadFollowUp(args: {

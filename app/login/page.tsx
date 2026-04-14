@@ -1,11 +1,6 @@
 import { redirect } from "next/navigation";
-import { cookies } from "next/headers";
 import { LoginForm } from "@/components/auth/login-form";
 import { getCurrentMfaLevel, getCurrentUser } from "@/lib/auth/session";
-import {
-  isTrustedMfaCookieValid,
-  TRUSTED_MFA_COOKIE,
-} from "@/lib/auth/trusted-device";
 
 export default async function LoginPage() {
   const authBypassEnabled =
@@ -20,10 +15,7 @@ export default async function LoginPage() {
 
   if (user) {
     const { currentLevel } = await getCurrentMfaLevel();
-    const cookieStore = await cookies();
-    const trustedMfaCookie = cookieStore.get(TRUSTED_MFA_COOKIE)?.value;
-    const trustedDevice = await isTrustedMfaCookieValid(trustedMfaCookie, user.id);
-    redirect(currentLevel === "aal2" || trustedDevice ? "/" : "/auth/mfa");
+    redirect(currentLevel === "aal2" ? "/" : "/auth/mfa");
   }
 
   return (

@@ -121,10 +121,6 @@ export function MfaForm() {
         throw verifyError;
       }
 
-      await fetch("/api/auth/trusted-device", {
-        method: "POST",
-      });
-
       router.replace("/");
       router.refresh();
     } catch (submissionError) {

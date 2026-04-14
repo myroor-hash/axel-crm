@@ -76,9 +76,14 @@ export async function middleware(request: NextRequest) {
   const isLoginRoute = request.nextUrl.pathname === "/login";
   const isAuthCallback = request.nextUrl.pathname.startsWith("/auth/callback");
   const isMfaRoute = request.nextUrl.pathname.startsWith("/auth/mfa");
+  const isAuthApiRoute = request.nextUrl.pathname.startsWith("/api/auth/");
   const isEmailApiRoute = request.nextUrl.pathname.startsWith("/api/email/");
   const isProtectedRoute =
-    !isLoginRoute && !isAuthCallback && !isEmailApiRoute && !isMfaRoute;
+    !isLoginRoute &&
+    !isAuthCallback &&
+    !isAuthApiRoute &&
+    !isEmailApiRoute &&
+    !isMfaRoute;
 
   const accessToken = session?.access_token;
   let currentLevel: string | null = null;

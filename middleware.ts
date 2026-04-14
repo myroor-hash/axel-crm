@@ -93,7 +93,7 @@ export async function middleware(request: NextRequest) {
   }
 
   if (user && currentLevel !== "aal2" && isProtectedRoute) {
-    return applyNoIndexHeaders(NextResponse.redirect(new URL("/auth/mfa", request.url)));
+    return applyNoIndexHeaders(NextResponse.redirect(new URL("/login", request.url)));
   }
 
   if (user && isLoginRoute) {

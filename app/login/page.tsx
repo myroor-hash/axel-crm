@@ -15,7 +15,9 @@ export default async function LoginPage() {
 
   if (user) {
     const { currentLevel } = await getCurrentMfaLevel();
-    redirect(currentLevel === "aal2" ? "/" : "/auth/mfa");
+    if (currentLevel === "aal2") {
+      redirect("/");
+    }
   }
 
   return (

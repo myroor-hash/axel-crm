@@ -47,6 +47,12 @@ export function LoginForm() {
         throw assuranceError;
       }
 
+      if (assuranceData.currentLevel !== "aal2") {
+        await fetch("/api/auth/mfa-session", {
+          method: "POST",
+        });
+      }
+
       router.replace(assuranceData.currentLevel === "aal2" ? "/" : "/auth/mfa");
       router.refresh();
     } catch (submissionError) {

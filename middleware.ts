@@ -20,6 +20,8 @@ type GenericDatabase = {
   public: GenericSchema;
 };
 
+const MFA_PENDING_COOKIE = "crm_mfa_pending";
+
 export async function middleware(request: NextRequest) {
   const authBypassEnabled =
     process.env.NODE_ENV !== "production" &&
@@ -102,6 +104,12 @@ export async function middleware(request: NextRequest) {
     }
 
     return applyNoIndexHeaders(response);
+  }
+
+  const hasMfaPendingCookie = request.cookies.get(MFA_PENDING_COOKIE)?.value === "1";
+
+  if (user && isMfaRoute && currentLevel !== "aal2" && !hasMfaPendingCookie) {
+    return applyNoIndexHeaders(NextResponse.redirect(new URL("/login", request.url)));
   }
 
   if (user && isMfaRoute && currentLevel === "aal2") {

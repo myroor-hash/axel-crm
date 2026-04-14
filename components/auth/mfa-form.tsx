@@ -121,6 +121,10 @@ export function MfaForm() {
         throw verifyError;
       }
 
+      await fetch("/api/auth/mfa-session", {
+        method: "DELETE",
+      });
+
       router.replace("/");
       router.refresh();
     } catch (submissionError) {
